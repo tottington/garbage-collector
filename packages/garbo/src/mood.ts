@@ -33,6 +33,7 @@ import {
 import { usingPurse } from "./outfit";
 import { effectValue } from "./potions";
 import { acquire } from "./acquire";
+import { syncAsdonFuelGauge } from "./resources";
 
 Mood.setDefaultOptions({
   songSlots: [
@@ -101,6 +102,7 @@ export function meatMood(
   }
 
   if (getWorkshed() === $item`Asdon Martin keyfob (on ring)`) {
+    syncAsdonFuelGauge();
     mood.drive(AsdonMartin.Driving.Observantly);
   }
 
@@ -224,6 +226,7 @@ export function freeFightMood(...additionalEffects: Effect[]): Mood {
   shrugBadEffects(...additionalEffects);
 
   if (getWorkshed() === $item`Asdon Martin keyfob (on ring)`) {
+    syncAsdonFuelGauge();
     mood.drive(AsdonMartin.Driving.Observantly);
   }
 

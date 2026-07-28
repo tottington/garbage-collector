@@ -24,7 +24,6 @@ import {
   $path,
   $skill,
   AprilingBandHelmet,
-  AsdonMartin,
   clamp,
   get,
   getModifier,
@@ -42,7 +41,7 @@ import { GarboTask } from "./engine";
 import { GarboFreeFightTask } from "./freeFight";
 import { sandwormFamiliar } from "../familiar";
 import { sober } from "../lib";
-import { safeSweatBulletCasts } from "../resources";
+import { asdonFillTo, safeSweatBulletCasts } from "../resources";
 import { acquire } from "../acquire";
 
 function sandwormSpec(spec: OutfitSpec = {}): OutfitSpec {
@@ -171,7 +170,13 @@ const SANDWORM_TASK_DEFINITIONS: readonly SandwormTask[] = [
       drumMachineWorthIt() &&
       getWorkshed() === $item`Asdon Martin keyfob (on ring)`,
     completed: () => get("_missileLauncherUsed"),
-    prepare: () => AsdonMartin.fillTo(100),
+    prepare: () => {
+      if (!asdonFillTo(100)) {
+        throw new Error(
+          "Failed to fuel Asdon Martin for the missile launcher.",
+        );
+      }
+    },
     combat: new GarboStrategy(() =>
       sandwormMacro().trySkill($skill`Asdon Martin: Missile Launcher`),
     ),

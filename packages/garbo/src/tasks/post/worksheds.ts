@@ -7,20 +7,12 @@ import {
   use,
   visitUrl,
 } from "kolmafia";
-import {
-  $effect,
-  $item,
-  $items,
-  AsdonMartin,
-  DNALab,
-  get,
-  have,
-  TakerSpace,
-} from "libram";
+import { $effect, $item, $items, DNALab, get, have, TakerSpace } from "libram";
 import { globalOptions } from "../../config";
 import { potionSetupCompleted } from "../../potions";
 import { estimatedGarboTurns, estimatedTurnsTomorrow } from "../../turns";
 import {
+  asdonDrive,
   bestTakerspaceItem,
   grabMedicine,
   rotateToOptimalCycle,
@@ -131,7 +123,7 @@ const worksheds = [
       );
     },
     action: () => {
-      AsdonMartin.drive(
+      asdonDrive(
         $effect`Driving Observantly`,
         estimatedGarboTurns() +
           (globalOptions.ascend ? 0 : estimatedTurnsTomorrow),

@@ -67,7 +67,6 @@ import {
   $modifier,
   $skill,
   $thrall,
-  AsdonMartin,
   clamp,
   DesignerSweatpants,
   Diet,
@@ -97,6 +96,7 @@ import { acquire, priceCaps } from "./acquire";
 import { withVIPClan } from "./clan";
 import { globalOptions } from "./config";
 import {
+  asdonDrive,
   beretEffectValue,
   expectedGregs,
   shouldAugustCast,
@@ -1495,7 +1495,7 @@ export function runDiet(): void {
           GarboWorkshed.current?.workshed ===
           $item`Asdon Martin keyfob (on ring)`
         ) {
-          AsdonMartin.drive(
+          asdonDrive(
             $effect`Driving Observantly`,
             dietAdventures(dietBuilder.diet()) +
               (globalOptions.ascend ? 0 : estimatedTurnsTomorrow),
