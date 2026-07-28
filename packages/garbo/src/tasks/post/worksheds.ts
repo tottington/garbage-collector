@@ -13,6 +13,7 @@ import { potionSetupCompleted } from "../../potions";
 import { estimatedGarboTurns, estimatedTurnsTomorrow } from "../../turns";
 import {
   asdonDrive,
+  asdonFuelingFailed,
   bestTakerspaceItem,
   grabMedicine,
   rotateToOptimalCycle,
@@ -116,10 +117,13 @@ const worksheds = [
   new GarboWorkshed({
     workshed: $item`Asdon Martin keyfob (on ring)`,
     done: () => {
+      // A genuine fueling failure counts as done: this task has no limit, so
+      // retrying it forever would block every task behind it.
       return (
+        asdonFuelingFailed() ||
         haveEffect($effect`Driving Observantly`) >=
-        estimatedGarboTurns() +
-          (globalOptions.ascend ? 0 : estimatedTurnsTomorrow)
+          estimatedGarboTurns() +
+            (globalOptions.ascend ? 0 : estimatedTurnsTomorrow)
       );
     },
     action: () => {

@@ -1495,11 +1495,19 @@ export function runDiet(): void {
           GarboWorkshed.current?.workshed ===
           $item`Asdon Martin keyfob (on ring)`
         ) {
-          asdonDrive(
-            $effect`Driving Observantly`,
-            dietAdventures(dietBuilder.diet()) +
-              (globalOptions.ascend ? 0 : estimatedTurnsTomorrow),
-          );
+          if (
+            !asdonDrive(
+              $effect`Driving Observantly`,
+              dietAdventures(dietBuilder.diet()) +
+                (globalOptions.ascend ? 0 : estimatedTurnsTomorrow),
+            )
+          ) {
+            // Abort while the Asdon is still installed; falling through would
+            // swap in the Mayo Clinic and forfeit the driving turns for the day.
+            throw new Error(
+              "Failed to fuel the Asdon Martin before swapping worksheds.",
+            );
+          }
         } else {
           GarboWorkshed.current?.action?.();
         }
