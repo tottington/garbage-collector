@@ -23,6 +23,7 @@ import { estimatedGarboTurns, estimatedTurnsTomorrow } from "../../turns";
 import {
   bestTakerspaceItem,
   grabMedicine,
+  reportingAsdonFailure,
   rotateToOptimalCycle,
   trainNeedsRotating,
 } from "../../resources";
@@ -131,10 +132,12 @@ const worksheds = [
       );
     },
     action: () => {
-      AsdonMartin.drive(
-        $effect`Driving Observantly`,
+      const turns =
         estimatedGarboTurns() +
-          (globalOptions.ascend ? 0 : estimatedTurnsTomorrow),
+        (globalOptions.ascend ? 0 : estimatedTurnsTomorrow);
+      reportingAsdonFailure(
+        `drive for ${turns} turns from the workshed task`,
+        () => AsdonMartin.drive($effect`Driving Observantly`, turns),
       );
     },
   }),

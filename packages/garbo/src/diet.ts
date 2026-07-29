@@ -99,6 +99,7 @@ import { globalOptions } from "./config";
 import {
   beretEffectValue,
   expectedGregs,
+  reportingAsdonFailure,
   shouldAugustCast,
   synthesize,
 } from "./resources";
@@ -1495,10 +1496,12 @@ export function runDiet(): void {
           GarboWorkshed.current?.workshed ===
           $item`Asdon Martin keyfob (on ring)`
         ) {
-          AsdonMartin.drive(
-            $effect`Driving Observantly`,
+          const driveTurns =
             dietAdventures(dietBuilder.diet()) +
-              (globalOptions.ascend ? 0 : estimatedTurnsTomorrow),
+            (globalOptions.ascend ? 0 : estimatedTurnsTomorrow);
+          reportingAsdonFailure(
+            `drive for ${driveTurns} turns before the Mayo swap`,
+            () => AsdonMartin.drive($effect`Driving Observantly`, driveTurns),
           );
         } else {
           GarboWorkshed.current?.action?.();

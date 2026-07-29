@@ -42,7 +42,7 @@ import { GarboTask } from "./engine";
 import { GarboFreeFightTask } from "./freeFight";
 import { sandwormFamiliar } from "../familiar";
 import { sober } from "../lib";
-import { safeSweatBulletCasts } from "../resources";
+import { reportingAsdonFailure, safeSweatBulletCasts } from "../resources";
 import { acquire } from "../acquire";
 
 function sandwormSpec(spec: OutfitSpec = {}): OutfitSpec {
@@ -171,7 +171,10 @@ const SANDWORM_TASK_DEFINITIONS: readonly SandwormTask[] = [
       drumMachineWorthIt() &&
       getWorkshed() === $item`Asdon Martin keyfob (on ring)`,
     completed: () => get("_missileLauncherUsed"),
-    prepare: () => AsdonMartin.fillTo(100),
+    prepare: () =>
+      reportingAsdonFailure("fillTo(100) for the missile launcher", () =>
+        AsdonMartin.fillTo(100),
+      ),
     combat: new GarboStrategy(() =>
       sandwormMacro().trySkill($skill`Asdon Martin: Missile Launcher`),
     ),
