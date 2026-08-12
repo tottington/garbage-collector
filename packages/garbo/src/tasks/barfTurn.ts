@@ -27,6 +27,8 @@ import {
   totalTurnsPlayed,
   use,
   visitUrl,
+  weaponHands,
+  weaponType,
 } from "kolmafia";
 import {
   $effect,
@@ -36,6 +38,7 @@ import {
   $location,
   $monster,
   $skill,
+  $slot,
   ChestMimic,
   clamp,
   Counter,
@@ -160,7 +163,32 @@ function createWandererOutfit(
   }
   if (needPeridot) sourceOutfit.equip($item`Peridot of Peril`);
   if (needBCZ) sourceOutfit.equip($item`blood cubic zirconia`);
-  if (needMonodent) sourceOutfit.equip($item`Monodent of the Sea`);
+  // KoL only lets you dual-wield two weapons of the same type -- see
+  // EquipmentRequest: "You can't hold a <x> in your off-hand when wielding a
+  // <y>" when getWeaponType differs. Outfit.equipUsingDualWield() checks
+  // handedness, Double-Fisted Skull Smashing and canEquip, but not weapon type,
+  // so it will happily pin the Monodent (a one-handed spear, melee) opposite
+  // something like an ice nine (a one-handed pistol, ranged). Nothing catches
+  // that until dress() applies the pinned slots with direct equip() calls, the
+  // game refuses, and the run dies on "Failed to fully dress".
+  //
+  // So only place the Monodent where it is certain to be equippable: the weapon
+  // slot if the outfit has not claimed it, or the off-hand beside a weapon we
+  // have actually pinned and checked. Feesh is an optimisation and
+  // Macro.refractedGaze() gates the skill on haveEquipped(), so declining it
+  // costs a wanderer trick rather than the whole run.
+  if (needMonodent) {
+    const monodent = $item`Monodent of the Sea`;
+    const plannedWeapon = sourceOutfit.equips.get($slot`weapon`);
+    if (!plannedWeapon) {
+      sourceOutfit.equip(monodent, $slot`weapon`);
+    } else if (
+      weaponHands(plannedWeapon) === 1 &&
+      weaponType(plannedWeapon) === weaponType(monodent)
+    ) {
+      sourceOutfit.equip(monodent, $slot`off-hand`);
+    }
+  }
 
   return freeFightOutfit(
     sourceOutfit.spec(),
