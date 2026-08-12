@@ -2,9 +2,11 @@ import {
   abort,
   canAdventure,
   getClanLounge,
+  handlingChoice,
   haveEquipped,
   isBanished,
   itemAmount,
+  lastChoice,
   Location,
   myAdventures,
   myHash,
@@ -262,16 +264,68 @@ export const chainStarters = [
   ),
 ];
 
+const SPINNING_YOUR_TIME_SPINNER = 1195;
+const TRAVEL_TO_A_RECENT_FIGHT = 1196;
+
+/**
+ * Whether the Time-Spinner has already declined to travel to our target this run.
+ *
+ * `combatQueue` is only an approximation of the Time-Spinner's recent-fight list, so
+ * the target can pass our `available()` check and still not be on offer. When that
+ * happens the game does not start a fight -- it just hands choice 1196 back -- and
+ * we would otherwise keep spending the item on a list that will not have our target.
+ */
+let timeSpinnerRefusedTarget = false;
+
+/**
+ * Leave choice 1196 after the Time-Spinner declined to fight our target.
+ *
+ * This matters well beyond the wasted attempt: mafia cannot change equipment while a
+ * choice is open, so an abandoned 1196 surfaces much later as "Failed to maximize
+ * properly!" from whichever unrelated task next dresses an outfit.
+ */
+function escapeRefusedTimeSpinner(): void {
+  timeSpinnerRefusedTarget = true;
+  print(
+    `The Time-Spinner would not travel to a ${globalOptions.target}; it is no longer in the recent-fight list. Backing out of the choice and skipping this source for the rest of the run.`,
+    HIGHLIGHT,
+  );
+  // A refusal can leave us on either Time-Spinner page -- in practice it bounces
+  // back to the 1195 menu -- and leaving one lands on the other, so drain them
+  // rather than handling a single hop. 1196 is not in mafia's canWalkFromChoice
+  // table and needs its explicit "Maybe Later"; 1195 is, so any non-choice
+  // request drops it and ChoiceManager clears handlingChoice for us.
+  let attempts = 0;
+  while (handlingChoice() && attempts++ < 3) {
+    const choice = lastChoice();
+    if (choice === TRAVEL_TO_A_RECENT_FIGHT) {
+      runChoice(2); // Maybe Later
+    } else if (choice === SPINNING_YOUR_TIME_SPINNER) {
+      visitUrl("main.php");
+    } else {
+      break;
+    }
+  }
+
+  if (handlingChoice()) {
+    abort(
+      `Still stuck in choice ${lastChoice()} after the Time-Spinner refused to fight a ${globalOptions.target}. Resolve it in the relay browser before continuing -- leaving a choice open breaks every later equipment change.`,
+    );
+  }
+}
+
 export const copySources = [
   new CopyTargetFight(
     "Time-Spinner",
     () =>
+      !timeSpinnerRefusedTarget &&
       have($item`Time-Spinner`) &&
       $locations`Noob Cave, The Dire Warren, The Haunted Kitchen`.some(
         (location) => location.combatQueue.includes(globalOptions.target.name),
       ) &&
       get("_timeSpinnerMinutesUsed") <= 7,
     () =>
+      !timeSpinnerRefusedTarget &&
       have($item`Time-Spinner`) &&
       $locations`Noob Cave, The Dire Warren, The Haunted Kitchen`.some(
         (location) =>
@@ -287,8 +341,14 @@ export const copySources = [
           directlyUse($item`Time-Spinner`);
           runChoice(1);
           visitUrl(
-            `choice.php?whichchoice=1196&monid=${globalOptions.target.id}&option=1`,
+            `choice.php?whichchoice=${TRAVEL_TO_A_RECENT_FIGHT}&monid=${globalOptions.target.id}&option=1`,
           );
+          // A successful spin puts us in combat. If we are still sitting in a
+          // choice then the travel was refused and there is no fight to run.
+          if (handlingChoice()) {
+            escapeRefusedTimeSpinner();
+            return;
+          }
           runCombat();
         },
         options.useAuto,
