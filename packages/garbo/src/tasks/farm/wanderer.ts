@@ -115,18 +115,18 @@ function createWandererOutfit(
   }
   if (needPeridot) sourceOutfit.equip($item`Peridot of Peril`);
   if (needBCZ) sourceOutfit.equip($item`blood cubic zirconia`);
+  // Take the Monodent only if it can hold the weapon slot outright, never by
+  // dual-wielding it into the off-hand. Outfit.dress() places pinned equipment
+  // with direct equip() calls rather than through the maximizer, and the checks
+  // that permit the dual-wield (Double-Fisted Skull Smashing, a one-handed
+  // weapon, canEquip) are evaluated when the outfit is built, not when it is
+  // worn -- so an off-hand placement that stops being legal in between becomes a
+  // fatal "Failed to fully dress (expected: off-hand Monodent of the Sea)".
+  // Feesh is only an optimisation, and Macro.refractedGaze() already gates the
+  // skill on haveEquipped(), so declining it costs a wanderer trick rather than
+  // the whole run.
   if (needMonodent) {
-    sourceOutfit.equip($item`Monodent of the Sea`);
-    // The Monodent is a one-handed weapon, so when the weapon slot is already
-    // spoken for grimoire dual-wields it into the off-hand. That only pins the
-    // off-hand: if nothing pins the weapon, the maximizer is still free to pick
-    // a two-handed weapon, which makes the off-hand unreachable and turns
-    // dress() into a hard "Failed to fully dress" that kills the whole run.
-    // Mafia imposes exactly this restriction on itself when it pins an off-hand
-    // (Evaluator sets hands = 1), so state it explicitly here.
-    if (sourceOutfit.haveEquipped($item`Monodent of the Sea`, $slot`off-hand`)) {
-      sourceOutfit.modifier.push("1 hand");
-    }
+    sourceOutfit.equip($item`Monodent of the Sea`, $slot`weapon`);
   }
 
   return freeFightOutfit(
