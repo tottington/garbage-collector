@@ -23,6 +23,7 @@ import {
   $location,
   $monster,
   $skill,
+  $slot,
   ChestMimic,
   Counter,
   CrepeParachute,
@@ -114,7 +115,19 @@ function createWandererOutfit(
   }
   if (needPeridot) sourceOutfit.equip($item`Peridot of Peril`);
   if (needBCZ) sourceOutfit.equip($item`blood cubic zirconia`);
-  if (needMonodent) sourceOutfit.equip($item`Monodent of the Sea`);
+  if (needMonodent) {
+    sourceOutfit.equip($item`Monodent of the Sea`);
+    // The Monodent is a one-handed weapon, so when the weapon slot is already
+    // spoken for grimoire dual-wields it into the off-hand. That only pins the
+    // off-hand: if nothing pins the weapon, the maximizer is still free to pick
+    // a two-handed weapon, which makes the off-hand unreachable and turns
+    // dress() into a hard "Failed to fully dress" that kills the whole run.
+    // Mafia imposes exactly this restriction on itself when it pins an off-hand
+    // (Evaluator sets hands = 1), so state it explicitly here.
+    if (sourceOutfit.haveEquipped($item`Monodent of the Sea`, $slot`off-hand`)) {
+      sourceOutfit.modifier.push("1 hand");
+    }
+  }
 
   return freeFightOutfit(
     sourceOutfit.spec(),
