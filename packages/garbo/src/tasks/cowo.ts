@@ -7,23 +7,64 @@ import {
   getCowoMonstersToBanish,
   redTaffyWorth,
 } from "../resources/cowoResources";
-import { myAdventures, retrieveItem, toMonster } from "kolmafia";
+import {
+  Familiar,
+  Item,
+  myAdventures,
+  retrieveItem,
+  toMonster,
+  toSlot,
+  weaponHands,
+  weaponType,
+} from "kolmafia";
 import {
   $effect,
   $item,
   $location,
   $monsters,
+  $skill,
+  $slot,
   AsdonMartin,
   FloristFriar,
   get,
   have,
 } from "libram";
+import { Outfit } from "grimoire-kolmafia";
 import { barfOutfit } from "../outfit";
 import { GarboStrategy } from "../combatStrategy";
 import { Macro } from "../combat";
 import { trackMarginalMpa } from "../session";
 import postCombatActions from "../post";
 import { garboFarmLocation } from "../lib";
+
+/**
+ * Equip the gear a banish method needs without creating an illegal dual-wield.
+ *
+ * KoL refuses an off-hand weapon whose WeaponType differs from the wielded one
+ * ("You can't hold a <x> in your off-hand when wielding a <y>"), and
+ * Outfit.equip() does not check that -- it pins the off-hand anyway, and
+ * dress() then dies with "Failed to fully dress", taking the run with it. The
+ * Monodent (one-handed spear, melee) next to a barf weapon like an ice nine
+ * (one-handed pistol, ranged) hits this every time.
+ *
+ * The banish only works while its item is equipped, so when dual-wielding is
+ * not legal we drop the outfit's weapon and take that slot instead. Losing the
+ * maximizer's weapon for the turn is much cheaper than aborting, and cheaper
+ * than silently failing to banish.
+ */
+function equipBanishGear(outfit: Outfit, thing: Item | Familiar): void {
+  if (thing instanceof Item && toSlot(thing) === $slot`weapon`) {
+    const weapon = outfit.equips.get($slot`weapon`);
+    const canDualWield =
+      weapon !== undefined &&
+      have($skill`Double-Fisted Skull Smashing`) &&
+      weaponHands(weapon) === 1 &&
+      weaponHands(thing) === 1 &&
+      weaponType(weapon) === weaponType(thing);
+    if (weapon && !canDualWield) outfit.equips.delete($slot`weapon`);
+  }
+  outfit.equip(thing);
+}
 
 export function CowoTasks(): GarboTask[] {
   return [
@@ -60,7 +101,7 @@ export function CowoTasks(): GarboTask[] {
         const banishMethod = cowoChooseBanish();
 
         if (banishMethod?.equip) {
-          outfit.equip(banishMethod.equip);
+          equipBanishGear(outfit, banishMethod.equip);
         }
 
         return outfit;
