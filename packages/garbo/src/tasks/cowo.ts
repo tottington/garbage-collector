@@ -48,22 +48,34 @@ import { garboFarmLocation } from "../lib";
  * (one-handed pistol, ranged) hits this every time.
  *
  * The banish only works while its item is equipped, so when dual-wielding is
- * not legal we drop the outfit's weapon and take that slot instead. Losing the
- * maximizer's weapon for the turn is much cheaper than aborting, and cheaper
- * than silently failing to banish.
+ * not legal the banish item takes the weapon slot instead. Losing the outfit's
+ * weapon for the turn is cheaper than aborting or than failing to banish, but
+ * only if the banish item actually goes on, so the weapon is put back if it
+ * does not.
+ * @param outfit The outfit to add the banish gear to
+ * @param thing The gear the chosen banish method needs equipped
+ * @returns Whether the gear was equipped
  */
-function equipBanishGear(outfit: Outfit, thing: Item | Familiar): void {
-  if (thing instanceof Item && toSlot(thing) === $slot`weapon`) {
-    const weapon = outfit.equips.get($slot`weapon`);
-    const canDualWield =
-      weapon !== undefined &&
-      have($skill`Double-Fisted Skull Smashing`) &&
-      weaponHands(weapon) === 1 &&
-      weaponHands(thing) === 1 &&
-      weaponType(weapon) === weaponType(thing);
-    if (weapon && !canDualWield) outfit.equips.delete($slot`weapon`);
+function equipBanishGear(outfit: Outfit, thing: Item | Familiar): boolean {
+  if (!(thing instanceof Item) || toSlot(thing) !== $slot`weapon`) {
+    return outfit.equip(thing);
   }
-  outfit.equip(thing);
+
+  const weapon = outfit.equips.get($slot`weapon`);
+  if (!weapon) return outfit.equip(thing, $slot`weapon`);
+
+  const canDualWield =
+    !outfit.equips.has($slot`off-hand`) &&
+    have($skill`Double-Fisted Skull Smashing`) &&
+    weaponHands(weapon) === 1 &&
+    weaponHands(thing) === 1 &&
+    weaponType(weapon) === weaponType(thing);
+  if (canDualWield && outfit.equip(thing, $slot`off-hand`)) return true;
+
+  outfit.equips.delete($slot`weapon`);
+  if (outfit.equip(thing, $slot`weapon`)) return true;
+  outfit.equips.set($slot`weapon`, weapon);
+  return false;
 }
 
 export function CowoTasks(): GarboTask[] {
@@ -98,10 +110,19 @@ export function CowoTasks(): GarboTask[] {
             ? undefined
             : $item`das boot`,
         });
-        const banishMethod = cowoChooseBanish();
+        // Only dress for a banish we still need. Once both monsters are
+        // banished the gear buys nothing, and taking the weapon slot for it
+        // costs us the outfit's weapon every turn for the rest of the day.
+        const banishMethod =
+          getCowoMonstersToBanish().length > 0 ? cowoChooseBanish() : null;
 
-        if (banishMethod?.equip) {
-          equipBanishGear(outfit, banishMethod.equip);
+        if (
+          banishMethod?.equip &&
+          !equipBanishGear(outfit, banishMethod.equip)
+        ) {
+          throw new Error(
+            `Could not equip ${banishMethod.equip} to banish with ${banishMethod.name}.`,
+          );
         }
 
         return outfit;
