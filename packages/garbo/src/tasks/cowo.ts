@@ -38,20 +38,12 @@ import postCombatActions from "../post";
 import { garboFarmLocation } from "../lib";
 
 /**
- * Equip the gear a banish method needs without creating an illegal dual-wield.
+ * Equip a banish method's gear without creating an illegal dual-wield.
  *
- * KoL refuses an off-hand weapon whose WeaponType differs from the wielded one
- * ("You can't hold a <x> in your off-hand when wielding a <y>"), and
- * Outfit.equip() does not check that -- it pins the off-hand anyway, and
- * dress() then dies with "Failed to fully dress", taking the run with it. The
- * Monodent (one-handed spear, melee) next to a barf weapon like an ice nine
- * (one-handed pistol, ranged) hits this every time.
- *
- * The banish only works while its item is equipped, so when dual-wielding is
- * not legal the banish item takes the weapon slot instead. Losing the outfit's
- * weapon for the turn is cheaper than aborting or than failing to banish, but
- * only if the banish item actually goes on, so the weapon is put back if it
- * does not.
+ * KoL refuses an off-hand weapon of a different WeaponType and Outfit.equip()
+ * does not check that, so dress() would fail. When dual-wielding is not legal
+ * the banish item takes the weapon slot, restoring the weapon if it will not go
+ * on.
  * @param outfit The outfit to add the banish gear to
  * @param thing The gear the chosen banish method needs equipped
  * @returns Whether the gear was equipped
@@ -110,9 +102,8 @@ export function CowoTasks(): GarboTask[] {
             ? undefined
             : $item`das boot`,
         });
-        // Only dress for a banish we still need. Once both monsters are
-        // banished the gear buys nothing, and taking the weapon slot for it
-        // costs us the outfit's weapon every turn for the rest of the day.
+        // Only dress for a banish we still need; otherwise the gear costs us
+        // the outfit's weapon every turn for nothing.
         const banishMethod =
           getCowoMonstersToBanish().length > 0 ? cowoChooseBanish() : null;
 

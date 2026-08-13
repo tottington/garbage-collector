@@ -176,10 +176,8 @@ export function usingThumbRing(): boolean {
     const gear = bonusAccessories(BonusEquipMode.BARF);
     const accessoryBonuses = [...gear.entries()].filter(([item]) => have(item));
 
-    // Price these against the farming location, but put the location back
-    // afterwards: mafia resolves location-dependent modifier expressions
-    // (`env(...)`, `zone(...)`, `loc(...)`) against whatever location was set
-    // last, so leaving it behind silently reprices unrelated gear elsewhere.
+    // Mafia resolves env()/zone()/loc() modifiers against the last location
+    // set, so restore it or unrelated gear is priced against this one.
     const meatAccessories = withLocation(garboFarmLocation(), () =>
       Item.all()
         .filter(
