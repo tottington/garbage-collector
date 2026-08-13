@@ -22,6 +22,7 @@ export function getCowoMonstersToBanish(): Monster[] {
 interface BanishMethod {
   available: () => boolean;
   macro: () => Macro;
+  /** Must match the name of the item or skill mafia records as the banisher. */
   name: string;
   equip?: Item | Familiar;
 }
@@ -58,7 +59,7 @@ const banishMethods: BanishMethod[] = [
     macro: () => Macro.tryItem($item`human musk`),
   },
   {
-    name: "Monodent",
+    name: "Sea *dent: Throw a Lightning Bolt",
     available: () =>
       have($item`Monodent of the Sea`) && get("_seadentLightningUsed", 0) < 11,
     equip: $item`Monodent of the Sea`,
