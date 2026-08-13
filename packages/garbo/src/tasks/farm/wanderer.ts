@@ -117,11 +117,9 @@ function createWandererOutfit(
   }
   if (needPeridot) sourceOutfit.equip($item`Peridot of Peril`);
   if (needBCZ) sourceOutfit.equip($item`blood cubic zirconia`);
-  // KoL only lets you dual-wield two weapons of the same type, and
-  // Outfit.equipUsingDualWield() does not check that, so an off-hand Monodent
-  // beside a ranged weapon fails dress(). Place it only where it is certain to
-  // be equippable; feesh is optional and Macro.refractedGaze() gates the skill
-  // on haveEquipped().
+  // KoL only lets you dual-wield two weapons of the same type and
+  // Outfit.equipUsingDualWield() does not check that, so place the Monodent only
+  // where it is certain to be equippable. Feesh is optional.
   if (needMonodent) {
     const monodent = $item`Monodent of the Sea`;
     const plannedWeapon = sourceOutfit.equips.get($slot`weapon`);
