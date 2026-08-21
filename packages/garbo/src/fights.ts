@@ -579,6 +579,7 @@ type FreeFightOptions = {
   spec?: Delayed<OutfitSpec>;
   noncombat?: () => boolean;
   effects?: () => Effect[];
+  postTask?: () => void;
 
   // Tells us if this fight can reasonably be expected to do familiar
   // actions like meatifying matter, or crimbo shrub red raying.
@@ -1277,6 +1278,11 @@ const priorityFreeRunFightSources = [
       location: canAdventure($location`Barf Mountain`)
         ? $location`Barf Mountain`
         : $location`The Dire Warren`,
+      postTask: () => {
+        if(have($effect`Fishy`, 100) && have($item`Monodent of the Sea`) && !get("_seadentWaveUsed")) {
+          useSkill($skill`Sea *dent: Summon a Wave`)
+        }
+      },
     },
   ),
 ];
@@ -1881,7 +1887,7 @@ export function deliverThesisIfAble(): void {
     ensureEffect($effect`Triple-Sized`);
     outfit("checkpoint");
   }
-  cliExecute(`gain ${requiredMuscle} muscle`);
+  cliExecute(`try; gain ${requiredMuscle} muscle`);
 
   if (molemanReady()) {
     withMacro(

@@ -1,16 +1,17 @@
-import { GarboTask } from "./engine";
-import { globalOptions } from "../config";
-import { meatMood } from "../mood";
-import { estimatedGarboTurns } from "../turns";
+import { GarboTask } from "../engine";
+import { globalOptions } from "../../config";
+import { meatMood } from "../../mood";
+import { estimatedGarboTurns } from "../../turns";
 import {
   cowoChooseBanish,
   getCowoMonstersToBanish,
   redTaffyWorth,
-} from "../resources/cowoResources";
+} from "../../resources/cowoResources";
 import {
   Familiar,
   Item,
   myAdventures,
+  print,
   retrieveItem,
   toMonster,
   toSlot,
@@ -29,13 +30,12 @@ import {
   get,
   have,
 } from "libram";
-import { Outfit } from "grimoire-kolmafia";
-import { barfOutfit } from "../outfit";
-import { GarboStrategy } from "../combatStrategy";
-import { Macro } from "../combat";
-import { trackMarginalMpa } from "../session";
-import postCombatActions from "../post";
-import { garboFarmLocation } from "../lib";
+import { barfOutfit } from "../../outfit";
+import { GarboStrategy } from "../../combatStrategy";
+import { Macro } from "../../combat";
+import { trackMarginalMpa } from "../../session";
+import postCombatActions from "../../post";
+import { Outfit, Quest } from "grimoire-kolmafia";
 
 /**
  * Equip a banish method's gear without creating an illegal dual-wield.
@@ -70,10 +70,11 @@ function equipBanishGear(outfit: Outfit, thing: Item | Familiar): boolean {
   return false;
 }
 
-export function CowoTasks(): GarboTask[] {
-  return [
+export const CowoQuest: Quest<GarboTask> = {
+   name: "Sea Cow Turn",
+  tasks: [
     {
-      name: "Cowo",
+      name: "Coral Corral",
       ready: () => globalOptions.cowo,
       prepare: () => {
         if (redTaffyWorth()) {
@@ -94,18 +95,14 @@ export function CowoTasks(): GarboTask[] {
       },
       completed: () => myAdventures() === 0,
       outfit: () => {
-        const outfit = barfOutfit({
-          pants: have($effect`Driving Waterproofly`)
-            ? undefined
-            : $item`really, really nice swimming trunks`,
-          famequip: have($effect`Driving Waterproofly`)
-            ? undefined
-            : $item`das boot`,
-        });
-        // Only dress for a banish we still need; otherwise the gear costs us
-        // the outfit's weapon every turn for nothing.
-        const banishMethod =
-          getCowoMonstersToBanish().length > 0 ? cowoChooseBanish() : null;
+        const outfit =
+          have($effect`Driving Waterproofly`)
+            ? barfOutfit({})
+            :
+          barfOutfit({
+            pants: $item`really, really nice swimming trunks`,
+          });
+        const banishMethod = cowoChooseBanish();
 
         if (
           banishMethod?.equip &&
@@ -121,6 +118,9 @@ export function CowoTasks(): GarboTask[] {
       do: $location`The Coral Corral`,
       combat: new GarboStrategy(() => {
         const banishMethod = cowoChooseBanish();
+        if(banishMethod) {
+          print(`Planning to banish using ${banishMethod?.name}`);
+        }
 
         if (banishMethod === null && getCowoMonstersToBanish().length > 0) {
           throw new Error(
@@ -149,11 +149,15 @@ export function CowoTasks(): GarboTask[] {
           FloristFriar.Crookweed,
           FloristFriar.ElectricEelgrass,
           FloristFriar.Duckweed,
-        ]
-        if (BARF_PLANTS.some((flower) => flower.available($location`The Coral Corral`))) {
+        ];
+        if (
+          BARF_PLANTS.some((flower) =>
+            flower.available($location`The Coral Corral`),
+          )
+        ) {
           BARF_PLANTS.filter((flower) =>
-                  flower.available(garboFarmLocation()),
-                ).forEach((flower) => flower.plant());
+            flower.available($location`The Coral Corral`),
+          ).forEach((flower) => flower.plant());
         }
 
         if (
@@ -164,5 +168,5 @@ export function CowoTasks(): GarboTask[] {
       },
       spendsTurn: true,
     },
-  ];
+  ],
 }
