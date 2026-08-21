@@ -7,12 +7,24 @@ import {
   getCowoMonstersToBanish,
   redTaffyWorth,
 } from "../../resources/cowoResources";
-import { myAdventures, print, retrieveItem, toMonster } from "kolmafia";
+import {
+  Familiar,
+  Item,
+  myAdventures,
+  print,
+  retrieveItem,
+  toMonster,
+  toSlot,
+  weaponHands,
+  weaponType,
+} from "kolmafia";
 import {
   $effect,
   $item,
   $location,
   $monsters,
+  $skill,
+  $slot,
   AsdonMartin,
   FloristFriar,
   get,
@@ -23,7 +35,40 @@ import { GarboStrategy } from "../../combatStrategy";
 import { Macro } from "../../combat";
 import { trackMarginalMpa } from "../../session";
 import postCombatActions from "../../post";
-import { Quest } from "grimoire-kolmafia";
+import { Outfit, Quest } from "grimoire-kolmafia";
+
+/**
+ * Equip a banish method's gear without creating an illegal dual-wield.
+ *
+ * KoL refuses an off-hand weapon of a different WeaponType and Outfit.equip()
+ * does not check that, so dress() would fail. When dual-wielding is not legal
+ * the banish item takes the weapon slot, restoring the weapon if it will not go
+ * on.
+ * @param outfit The outfit to add the banish gear to
+ * @param thing The gear the chosen banish method needs equipped
+ * @returns Whether the gear was equipped
+ */
+function equipBanishGear(outfit: Outfit, thing: Item | Familiar): boolean {
+  if (!(thing instanceof Item) || toSlot(thing) !== $slot`weapon`) {
+    return outfit.equip(thing);
+  }
+
+  const weapon = outfit.equips.get($slot`weapon`);
+  if (!weapon) return outfit.equip(thing, $slot`weapon`);
+
+  const canDualWield =
+    !outfit.equips.has($slot`off-hand`) &&
+    have($skill`Double-Fisted Skull Smashing`) &&
+    weaponHands(weapon) === 1 &&
+    weaponHands(thing) === 1 &&
+    weaponType(weapon) === weaponType(thing);
+  if (canDualWield && outfit.equip(thing, $slot`off-hand`)) return true;
+
+  outfit.equips.delete($slot`weapon`);
+  if (outfit.equip(thing, $slot`weapon`)) return true;
+  outfit.equips.set($slot`weapon`, weapon);
+  return false;
+}
 
 export const CowoQuest: Quest<GarboTask> = {
    name: "Sea Cow Turn",
@@ -59,8 +104,13 @@ export const CowoQuest: Quest<GarboTask> = {
           });
         const banishMethod = cowoChooseBanish();
 
-        if (banishMethod?.equip) {
-          outfit.equip(banishMethod.equip);
+        if (
+          banishMethod?.equip &&
+          !equipBanishGear(outfit, banishMethod.equip)
+        ) {
+          throw new Error(
+            `Could not equip ${banishMethod.equip} to banish with ${banishMethod.name}.`,
+          );
         }
 
         return outfit;
