@@ -80,14 +80,14 @@ export const CowoQuest: Quest<GarboTask> = {
         if (redTaffyWorth()) {
           return Macro.if_(
             $monsters`Mer-kin rustler, sea cowboy`,
-            banishMethod?.macro ?? Macro.abort(),
+            banishMethod?.macro() ?? Macro.abort(),
           )
             .tryItem($item`pulled red taffy`)
             .meatKill();
         } else {
           return Macro.if_(
             $monsters`Mer-kin rustler, sea cowboy`,
-            banishMethod?.macro ?? Macro.abort(),
+            banishMethod?.macro() ?? Macro.abort(),
           ).meatKill();
         }
       }),
