@@ -44,7 +44,8 @@ const banishMethods: BanishMethod[] = [
   {
     name: "Spring Kick",
     available: () => have($item`spring shoes`),
-    macro: () => Macro.trySkill($skill`Spring Kick`).trySkill($skill`Spring Away`),
+    macro: () =>
+      Macro.trySkill($skill`Spring Kick`).trySkill($skill`Spring Away`),
     equip: $item`spring shoes`,
   },
   {
@@ -62,7 +63,7 @@ const banishMethods: BanishMethod[] = [
     macro: () => Macro.tryItem($item`human musk`),
   },
   {
-    name: "Monodent",
+    name: "Sea *dent: Throw a Lightning Bolt",
     available: () =>
       have($item`Monodent of the Sea`) && get("_seadentLightningUsed", 0) < 11,
     equip: $item`Monodent of the Sea`,
