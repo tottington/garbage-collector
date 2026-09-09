@@ -119,6 +119,7 @@ import {
 } from "./turns";
 import { garboValue } from "./garboValue";
 import { GarboWorkshed } from "./tasks/post/worksheds";
+import { FarmingStrategy } from "./farmingStrategy";
 
 const MPA = get("valueOfAdventure");
 print(`Using adventure value ${MPA}.`, HIGHLIGHT);
@@ -1495,11 +1496,8 @@ export function runDiet(): void {
           GarboWorkshed.current?.workshed ===
           $item`Asdon Martin keyfob (on ring)`
         ) {
-          const asdonEffect = globalOptions.cowo
-            ? $effect`Driving Waterproofly`
-            : $effect`Driving Observantly`;
           AsdonMartin.drive(
-            asdonEffect,
+            FarmingStrategy.asdonEffect,
             dietAdventures(dietBuilder.diet()) +
               (globalOptions.ascend ? 0 : estimatedTurnsTomorrow),
           );

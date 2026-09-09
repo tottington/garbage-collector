@@ -1274,11 +1274,17 @@ const priorityFreeRunFightSources = [
     () =>
       have($familiar`Patriotic Eagle`) &&
       !have($effect`Citizen of a Zone`) &&
-      $locations`Barf Mountain, The Dire Warren`.some((l) => canAdventure(l)),
+      $locations`Barf Mountain, The Fun-Guy Mansion, The Dire Warren`.some(
+        (l) => canAdventure(l),
+      ),
     (runSource: ActionSource) => {
-      const location = canAdventure($location`Barf Mountain`)
-        ? $location`Barf Mountain`
-        : $location`The Dire Warren`;
+      const location =
+        $locations`Barf Mountain, The Fun-Guy Mansion, The Dire Warren`.find(
+          (l) => canAdventure(l),
+        );
+      if (!location) {
+        throw new Error("Somehow, we can't adventure in the Dire Warren.");
+      }
       garboAdventure(
         location,
         Macro.skill($skill`%fn, let's pledge allegiance to a Zone`).step(
@@ -1297,8 +1303,12 @@ const priorityFreeRunFightSources = [
         ? $location`Barf Mountain`
         : $location`The Dire Warren`,
       postTask: () => {
-        if(have($effect`Fishy`, 100) && have($item`Monodent of the Sea`) && !get("_seadentWaveUsed")) {
-          useSkill($skill`Sea *dent: Summon a Wave`)
+        if (
+          have($effect`Fishy`, 100) &&
+          have($item`Monodent of the Sea`) &&
+          !get("_seadentWaveUsed")
+        ) {
+          useSkill($skill`Sea *dent: Summon a Wave`);
         }
       },
     },
@@ -1800,7 +1810,11 @@ export function freeFights(): void {
 
   // TODO: Run grimorized free fights until all are converted
   // TODO: freeFightMood()
-  runGarboQuests([PostQuest(), FreeFightQuest, FreeGiantSandwormQuest]);
+  runGarboQuests([
+    PostQuest<unknown>(),
+    FreeFightQuest,
+    FreeGiantSandwormQuest,
+  ]);
 
   // Run any community endeavors
   runGarboQuests([PostQuest(), undelay(FreeMimicEggDonationQuest)]);
