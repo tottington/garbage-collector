@@ -3,6 +3,7 @@ import {
   availableChoiceOptions,
   canAdventure,
   cliExecute,
+  Environment,
   equippedItem,
   getCampground,
   inebrietyLimit,
@@ -52,7 +53,6 @@ import { globalOptions } from "../../config";
 import { computeDiet, consumeDiet } from "../../diet";
 import {
   bestJuneCleaverOption,
-  farmLocation,
   freeRest,
   juneCleaverChoiceValues,
   unlimitedFreeRunList,
@@ -73,6 +73,7 @@ import {
   lavaDogsComplete,
   leprecondoTask,
 } from "../../resources";
+import { FarmingStrategy } from "../../farmingStrategy";
 
 const STUFF_TO_CLOSET = $items`bowling ball, funky junk key`;
 const STUFF_TO_USE = $items`Armory keycard, bottle-opener keycard, SHAWARMA Initiative Keycard`;
@@ -93,32 +94,49 @@ function useStuff(): GarboPostTask {
   };
 }
 
-const BARF_PLANTS = globalOptions.cowo
-  ? [
-      FloristFriar.Crookweed,
-      FloristFriar.ElectricEelgrass,
-      FloristFriar.Duckweed,
-    ]
-  : [
-      FloristFriar.StealingMagnolia,
-      FloristFriar.AloeGuvnor,
-      FloristFriar.PitcherPlant,
-    ];
+type Flower = typeof FloristFriar.AloeGuvnor; // I should export this
+const BARF_PLANTS: Record<Environment, Flower[]> = {
+  unknown: [],
+  none: [],
+  outdoor: [
+    FloristFriar.Rutabeggar,
+    FloristFriar.SeltzerWatercress,
+    FloristFriar.LettuceSpray,
+  ],
+  indoor: [
+    FloristFriar.StealingMagnolia,
+    FloristFriar.Impatiens,
+    FloristFriar.PitcherPlant,
+  ],
+  underground: [
+    FloristFriar.HornOfPlenty,
+    FloristFriar.ShuffleTruffle,
+    FloristFriar.MaxHeadshroom,
+  ],
+  underwater: [
+    FloristFriar.Crookweed,
+    FloristFriar.Snori,
+    FloristFriar.UpSeaDaisy,
+  ],
+};
+
 function floristFriars(): GarboPostTask {
+  const barfPlants = BARF_PLANTS[FarmingStrategy.location.environment];
   return {
     name: "Florist Plants",
-    completed: () => FloristFriar.isFull(farmLocation()),
+    completed: () =>
+      FloristFriar.isFull(FarmingStrategy.location) || barfPlants.length === 0,
     ready: () =>
-      get("lastAdventure") === farmLocation() &&
+      get("lastAdventure") === FarmingStrategy.location &&
       FloristFriar.have() &&
-      BARF_PLANTS.some((flower) => flower.available(farmLocation())),
+      barfPlants.some((flower) => flower.available(FarmingStrategy.location)),
     do: () =>
-      BARF_PLANTS.filter((flower) =>
-        flower.available(farmLocation()),
-      ).forEach((flower) => flower.plant()),
+      barfPlants
+        .filter((flower) => flower.available(FarmingStrategy.location))
+        .forEach((flower) => flower.plant()),
     available: () =>
       FloristFriar.have() &&
-      BARF_PLANTS.some((flower) => flower.available(farmLocation())),
+      barfPlants.some((flower) => flower.available(FarmingStrategy.location)),
   };
 }
 
@@ -437,7 +455,9 @@ function usePorkToilet(): GarboPostTask {
   };
 }
 
-export function PostQuest(completed?: () => boolean): Quest<GarboTask> {
+export function PostQuest<C = void>(
+  completed?: () => boolean,
+): Quest<GarboTask<C>, C> {
   return {
     name: "Postcombat",
     completed,

@@ -56,6 +56,7 @@ import {
 } from "../../resources";
 import { yachtzeeQuest } from "../yachtzee";
 import { embezzlerFightTask } from "../embezzler";
+import { EMPTY_CONTEXT, FarmingContext } from "../context";
 
 function dailyDungeon(additionalReady: () => boolean) {
   return {
@@ -130,7 +131,7 @@ function lavaDogs(additionalReady: () => boolean, baseSpec: OutfitSpec) {
         $location`The Bubblin' Caldera`,
       );
     },
-    combat: new GarboStrategy(() => Macro.kill()),
+    combat: new GarboStrategy<FarmingContext>(() => Macro.kill()),
     turns: () => clamp(7 - $location`The Bubblin' Caldera`.turnsSpent, 0, 7),
     spendsTurn: true,
   };
@@ -139,15 +140,12 @@ function lavaDogs(additionalReady: () => boolean, baseSpec: OutfitSpec) {
 function luckyTasks(
   sobriety: "sober" | "drunk",
   additionalReady: () => boolean,
-): AlternateTask[] {
+): AlternateTask<FarmingContext>[] {
   return [
     {
       name: `Lucky Adventure (${sobriety})`,
       completed: () => !have($effect`Lucky!`),
-      ready: () =>
-        additionalReady() &&
-        getBestLuckyAdventure().phase === "barf" &&
-        getBestLuckyAdventure().value() > get("valueOfAdventure"),
+      ready: () => additionalReady(),
       do: () => getBestLuckyAdventure().location,
       outfit: () =>
         sobriety === "drunk" ? { offhand: $item`Drunkula's wineglass` } : {},
@@ -165,7 +163,14 @@ function luckyTasks(
       name: `Lucky Embezzler (${sobriety})`,
       ready: () => additionalReady() && embezzlerFightTask.ready(),
     },
-    ...luckySourceTasks,
+    ...luckySourceTasks.map((task) => ({
+      ...task,
+      ready: () =>
+        additionalReady() &&
+        getBestLuckyAdventure().phase === "barf" &&
+        getBestLuckyAdventure().value() > get("valueOfAdventure") &&
+        task.ready(),
+    })),
   ];
 }
 
@@ -241,7 +246,7 @@ const peridotZone = () =>
     (l) => PeridotOfPeril.canImperil(l) && !unperidotableZones.includes(l),
   );
 
-export const NonBarfTurnTasks: AlternateTask[] = [
+export const NonBarfTurnTasks: AlternateTask<FarmingContext>[] = [
   {
     name: "Make Mimic Eggs (whatever we can)",
     ready: () => have($familiar`Chest Mimic`),
@@ -473,13 +478,18 @@ export const NonBarfTurnTasks: AlternateTask[] = [
 
 export function nonBarfTurns(): number {
   return sum(
-    NonBarfTurnTasks.filter((t) => (t.ready?.() ?? true) && !t.completed()),
+    NonBarfTurnTasks.filter(
+      (t) => (t.ready?.(EMPTY_CONTEXT) ?? true) && !t.completed(EMPTY_CONTEXT),
+    ),
     (t) => undelay(t.turns),
   );
 }
 
 let startedNonBarf: boolean = false;
-export const NonBarfTurnQuest: Quest<GarboTask> = {
+export const NonBarfTurnQuest: Quest<
+  GarboTask<FarmingContext>,
+  FarmingContext
+> = {
   name: "Non Barf Turn",
   tasks: NonBarfTurnTasks,
   ready: () => {

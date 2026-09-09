@@ -5,6 +5,7 @@ import {
   canEquip,
   cliExecute,
   currentRound,
+  effectFact,
   equip,
   getCampground,
   getClanName,
@@ -34,6 +35,7 @@ import {
 import {
   $class,
   $classes,
+  $effect,
   $familiars,
   $item,
   $items,
@@ -59,7 +61,7 @@ import {
   withProperty,
 } from "libram";
 import { stashItems, withStash, withVIPClan } from "./clan";
-import { globalOptions, isQuickGear } from "./config";
+import { FarmingMethod, globalOptions, isQuickGear } from "./config";
 import { dailySetup } from "./dailies";
 import { nonOrganAdventures, runDiet } from "./diet";
 import { dailyFights, freeFights } from "./fights";
@@ -100,15 +102,14 @@ import {
 } from "./tasks/buffExtension";
 import { shouldAffirmationHate } from "./combat";
 import { acquire } from "./acquire";
+import { FarmingStrategy } from "./farmingStrategy";
+import { runGarboFarmQuests } from "./tasks/engine";
 
 // Max price for tickets. You should rethink whether Barf is the best place if they're this expensive.
 const TICKET_MAX_PRICE = 500000;
 
 function ensureBarfAccess() {
-  if (
-    !(get("stenchAirportAlways") || get("_stenchAirportToday")) &&
-    !globalOptions.cowo
-  ) {
+  if (!(get("stenchAirportAlways") || get("_stenchAirportToday"))) {
     const ticket = $item`one-day ticket to Dinseylandfill`;
     // TODO: Get better item acquisition logic that e.g. checks own mall store.
     if (!have(ticket)) buy(1, ticket, TICKET_MAX_PRICE);
@@ -136,6 +137,23 @@ export function main(argString = ""): void {
   if (globalOptions.help) {
     Args.showHelp(globalOptions);
     return;
+  }
+
+  // `cowo` is the operator-facing flag (pLoop passes it on the command line);
+  // upstream now selects the Corral through the farmingMethod pref instead.
+  if (globalOptions.cowo) {
+    globalOptions.prefs.farmingMethod = FarmingMethod.THE_CORAL_CORRAL;
+  }
+
+  // Cowo is for professionals only
+  if (
+    globalOptions.prefs.farmingMethod === FarmingMethod.THE_CORAL_CORRAL &&
+    (effectFact($monster`sea cow`) !== $effect`Fishy` ||
+      get("seahorseName") === "" ||
+      !have($item`das boot`) ||
+      !have($item`really, really nice swimming trunks`))
+  ) {
+    globalOptions.prefs.farmingMethod = FarmingMethod.BARF_MOUNTAIN;
   }
 
   // Hit up main.php to get out of easily escapable choices
@@ -314,7 +332,11 @@ export function main(argString = ""): void {
   examine($item`designer sweatpants`);
 
   startSession();
-  if (!globalOptions.nobarf && !globalOptions.simdiet) {
+  if (
+    !globalOptions.nobarf &&
+    !globalOptions.simdiet &&
+    FarmingStrategy.ensureBarfAccess
+  ) {
     ensureBarfAccess();
   }
 
@@ -633,7 +655,7 @@ export function main(argString = ""): void {
           runGarboQuests([BuffExtensionQuest, PostBuffExtensionQuest]);
           if (!targetingMeat()) runGarboQuests([EmbezzlerFightsQuest]);
           try {
-            runGarboQuests([PostQuest(), ...FarmQuests]);
+            runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
             runGarboQuests([FinishUpQuest]);
           } finally {
             setAutoAttack(0);

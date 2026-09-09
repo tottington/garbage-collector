@@ -464,7 +464,7 @@ const BarfTurnTasks: GarboTask[] = [
     completed: () => get("_envyfishEggUsed"),
     do: () => use($item`envyfish egg`),
     spendsTurn: true,
-    outfit: meatTargetOutfit,
+    outfit: () => meatTargetOutfit(),
     combat: new GarboStrategy(() => Macro.target("envyfish egg")),
   },
   wanderTask(
@@ -796,7 +796,7 @@ const BarfTurnTasks: GarboTask[] = [
   },
 ];
 
-export const WandererQuest: Quest<GarboTask> = {
+export const WandererQuest: Quest<GarboTask, unknown> = {
   name: "Wanderers",
   tasks: BarfTurnTasks,
   completed: () => !canContinue(),

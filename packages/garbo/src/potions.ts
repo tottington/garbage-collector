@@ -66,7 +66,6 @@ import {
   pillkeeperOpportunityCost,
   targetMeat,
   targetMeatDifferential,
-  turnsToNC,
   withLocation,
 } from "./lib";
 import { usingPurse } from "./outfit";
@@ -77,6 +76,7 @@ import {
   castAugustScepterBuffs,
   safeSweatEquityCasts,
 } from "./resources";
+import { FarmingStrategy } from "./farmingStrategy";
 
 export type PotionTier = "target" | "overlap" | "barf" | "ascending";
 const banned = $items`Uncle Greenspan's Bathroom Finance Guide`;
@@ -187,9 +187,6 @@ export interface PotionOptions {
   }>;
 }
 
-export const VALUABLE_MODIFIERS = () =>
-  ["Meat Drop", "Familiar Weight", "Smithsness", "Item Drop"] as const;
-
 const BUFFER_TURNS = 30;
 
 export class Potion {
@@ -262,7 +259,7 @@ export class Potion {
     return (
       this.effectValues?.meatDrop ??
       getModifier("Meat Drop", this.effect()) +
-        (globalOptions.cowo
+        (FarmingStrategy.isUnderwater()
           ? getModifier("Meat Drop Penalty", this.effect())
           : 0) +
         2 * (usingPurse() ? this.smithsness() : 0)
@@ -273,7 +270,7 @@ export class Potion {
     return (
       this.effectValues?.famWeight ??
       getModifier("Familiar Weight", this.effect()) +
-        (globalOptions.cowo
+        (FarmingStrategy.isUnderwater()
           ? getModifier("Hidden Familiar Weight", this.effect())
           : 0)
     );
@@ -309,7 +306,7 @@ export class Potion {
       (bonusMeat / 100) *
       (baseMeat() *
         (duration - targetsApplied) *
-        (turnsToNC / (turnsToNC + 1)) +
+        FarmingStrategy.ncAdjustment() +
         (baseMeat() + targetMeatDifferential()) * targetsApplied)
     );
   }
@@ -980,7 +977,9 @@ class VariableMeatPotion {
   ): number {
     const yachtzeeValue = 2000;
     const targetValue = targetMeat();
-    const barfValue = (baseMeat() * turnsToNC) / 30;
+    const barfValue = FarmingStrategy.accountForNC()
+      ? (baseMeat() * FarmingStrategy.turnsToNC()) / 30
+      : baseMeat();
 
     const totalCosts = retrievePrice(this.potion, n);
     const totalDuration = n * this.duration;
