@@ -109,10 +109,7 @@ import { runGarboFarmQuests } from "./tasks/engine";
 const TICKET_MAX_PRICE = 500000;
 
 function ensureBarfAccess() {
-  if (
-    !(get("stenchAirportAlways") || get("_stenchAirportToday")) &&
-    !globalOptions.cowo
-  ) {
+  if (!(get("stenchAirportAlways") || get("_stenchAirportToday"))) {
     const ticket = $item`one-day ticket to Dinseylandfill`;
     // TODO: Get better item acquisition logic that e.g. checks own mall store.
     if (!have(ticket)) buy(1, ticket, TICKET_MAX_PRICE);
@@ -140,6 +137,12 @@ export function main(argString = ""): void {
   if (globalOptions.help) {
     Args.showHelp(globalOptions);
     return;
+  }
+
+  // `cowo` is the operator-facing flag (pLoop passes it on the command line);
+  // upstream now selects the Corral through the farmingMethod pref instead.
+  if (globalOptions.cowo) {
+    globalOptions.prefs.farmingMethod = FarmingMethod.THE_CORAL_CORRAL;
   }
 
   // Cowo is for professionals only
