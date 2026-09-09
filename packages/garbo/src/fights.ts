@@ -1060,8 +1060,7 @@ const freeFightSources = [
       runChoice(1);
       const offered = timeSpinnerOffers($monster`drunk pygmy`);
       if (offered === false) {
-        // Ground truth says no pygmy is on the list; don't submit a travel
-        // that is certain to be refused.
+        // Not on the list; don't submit a travel that will be refused.
         timeSpinnerRefusedPygmy = true;
         escapeRefusedTimeSpinner($monster`drunk pygmy`);
         return;
@@ -1075,8 +1074,7 @@ const freeFightSources = [
       visitUrl(
         `choice.php?whichchoice=1196&monid=${$monster`drunk pygmy`.id}&option=1`,
       );
-      // Still in a choice means the travel was refused. A refusal spends no
-      // minutes, so latch it off or available() keeps re-offering it.
+      // Refusals spend no minutes, so latch it off or available() re-offers.
       if (handlingChoice()) {
         timeSpinnerRefusedPygmy = true;
         escapeRefusedTimeSpinner($monster`drunk pygmy`);
