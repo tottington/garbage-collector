@@ -285,7 +285,7 @@ function targetInCombatQueue(): boolean {
 
 /**
  * Whether a monster is on the Time-Spinner's offer list, read from the
- * <select name="monid"> in choice 1196. `combatQueue` only approximates this.
+ * <select name="monid"> in choice 1196.
  * @param monster The monster to look for
  * @returns Whether the monster is offered, or null if no list was found
  */
@@ -329,7 +329,7 @@ export function escapeRefusedTimeSpinner(monster: Monster): void {
 
   if (handlingChoice()) {
     abort(
-      `Still stuck in choice ${lastChoice()} after the Time-Spinner refused to fight a ${monster}. Resolve it in the relay browser before continuing -- leaving a choice open breaks every later equipment change.`,
+      `Still stuck in choice ${lastChoice()} after the Time-Spinner refused to fight a ${monster}. Resolve it in the relay browser before continuing.`,
     );
   }
 }
