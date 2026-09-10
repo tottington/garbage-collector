@@ -59,13 +59,12 @@ import {
   sober,
   targetingMeat,
 } from "../../lib";
+import { freeFightOutfit, FreeFightOutfitMenuOptions } from "../../outfit/free";
 import {
   familiarWaterBreathingEquipment,
-  freeFightOutfit,
-  FreeFightOutfitMenuOptions,
-  meatTargetOutfit,
   waterBreathingEquipment,
-} from "../../outfit";
+} from "../../outfit/lib";
+import { meatTargetOutfit } from "../../outfit/target";
 import { deliverThesisIfAble } from "../../fights";
 import { GarboTask } from "../engine";
 import {
@@ -76,16 +75,15 @@ import {
 
 import { garboValue } from "../../garboValue";
 import { wanderingCopytargetsRemaining } from "../../turns";
+import { shouldMakeEgg } from "../../resources/chestMimic";
 import {
-  bestMidnightAvailable,
   canBullseye,
   guaranteedBullseye,
   safeToAttemptBullseye,
-  shouldFillLatte,
-  shouldMakeEgg,
-  tryFillLatte,
-  willYachtzee,
-} from "../../resources";
+} from "../../resources/everfullDarts";
+import { bestMidnightAvailable } from "../../resources/gingerbread";
+import { shouldFillLatte, tryFillLatte } from "../../resources/latte";
+import { willYachtzee } from "../../resources/yachtzee";
 import { acquire } from "../../acquire";
 
 const isGhost = () => get("_voteMonster") === $monster`angry ghost`;
@@ -447,7 +445,7 @@ const BarfTurnTasks: GarboTask[] = [
     completed: () => get("_envyfishEggUsed"),
     do: () => use($item`envyfish egg`),
     spendsTurn: true,
-    outfit: meatTargetOutfit,
+    outfit: () => meatTargetOutfit(),
     combat: new GarboStrategy(() => Macro.target("envyfish egg")),
   },
   wanderTask(
@@ -779,7 +777,7 @@ const BarfTurnTasks: GarboTask[] = [
   },
 ];
 
-export const WandererQuest: Quest<GarboTask> = {
+export const WandererQuest: Quest<GarboTask, unknown> = {
   name: "Wanderers",
   tasks: BarfTurnTasks,
   completed: () => !canContinue(),

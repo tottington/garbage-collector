@@ -25,7 +25,7 @@ import {
   have,
   undelay,
 } from "libram";
-import { barfFamiliar } from "../familiar";
+import { barfFamiliar } from "../familiar/barfFamiliar";
 import { chooseBjorn } from "./bjorn";
 import { bonusGear, toyCupidBow } from "./dropsgear";
 import {
@@ -41,6 +41,7 @@ import {
   modeValueOfMeat,
 } from "../lib";
 import { trackMarginalTurnExtraValue } from "../session";
+import { FarmingStrategy } from "../farmingStrategy";
 
 function chooseGun() {
   if (have($item`love`)) {
@@ -140,6 +141,9 @@ export function computeBarfOutfit(
 
   const bjornChoice = chooseBjorn(BonusEquipMode.BARF, spec.familiar, sim);
 
+  if (FarmingStrategy.isUnderwater()) {
+    outfit.modifier.push(`+sea`);
+  }
   outfit.modifier.push(
     `${modeValueOfMeat(BonusEquipMode.BARF)} Meat Drop`,
     `${modeValueOfItem(BonusEquipMode.BARF)} Item Drop`,

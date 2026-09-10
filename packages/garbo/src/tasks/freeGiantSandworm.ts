@@ -37,12 +37,12 @@ import { Macro } from "../combat";
 import { GarboStrategy } from "../combatStrategy";
 import { globalOptions } from "../config";
 import { garboValue } from "../garboValue";
-import { freeFightOutfit } from "../outfit";
+import { freeFightOutfit } from "../outfit/free";
 import { GarboTask } from "./engine";
 import { GarboFreeFightTask } from "./freeFight";
-import { sandwormFamiliar } from "../familiar";
+import { sandwormFamiliar } from "../familiar/sandwormFamiliar";
 import { sober } from "../lib";
-import { safeSweatBulletCasts } from "../resources";
+import { safeSweatBulletCasts } from "../resources/bloodCubicZirconia";
 import { acquire } from "../acquire";
 
 function sandwormSpec(spec: OutfitSpec = {}): OutfitSpec {
@@ -109,7 +109,7 @@ const DEFAULT_SANDWORM_TASK = {
       : []),
   ],
   do: () => use($item`drum machine`),
-  outfit: sandwormOutfit,
+  outfit: () => sandwormOutfit(),
   spendsTurn: false,
   tentacle: true,
 };
@@ -382,7 +382,7 @@ function drumMachineWorthIt(): boolean {
   return drumMachineROI() > 0;
 }
 
-export const FreeGiantSandwormQuest: Quest<GarboTask> = {
+export const FreeGiantSandwormQuest: Quest<GarboTask<void>, unknown> = {
   name: "Free Giant Sandworm",
   tasks: SandwormTasks,
   ready: () => sober() && hasWorms(),

@@ -9,9 +9,10 @@ import {
   sum,
   undelay,
 } from "libram";
-import { LuckySource, luckySourceTasks } from "../resources";
+import { luckySourceTasks } from "../resources/lucky";
+import type { LuckySource } from "../resources/lucky";
 import { canAdventure, canEquip } from "kolmafia";
-import { meatTargetOutfit } from "../outfit";
+import { meatTargetOutfit } from "../outfit/target";
 import { getBestLuckyAdventure, sober } from "../lib";
 import { AlternateTask } from "./engine";
 import { Macro } from "../combat";

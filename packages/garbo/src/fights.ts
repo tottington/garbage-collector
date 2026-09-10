@@ -106,24 +106,22 @@ import { withStash } from "./clan";
 import { garboAdventure, garboAdventureAuto, Macro, withMacro } from "./combat";
 import { globalOptions } from "./config";
 import { postFreeFightDailySetup } from "./dailiespost";
-import { copyTargetSources, getNextCopyTargetFight } from "./target";
+
 import {
-  bestMidnightAvailable,
   crateStrategy,
   doingGregFight,
   gregReady,
   initializeExtrovermectinZones,
   saberCrateIfSafe,
-  shouldClara,
-  shouldUnlockIngredients,
-  tryFillLatte,
-  willYachtzee,
-} from "./resources";
+} from "./resources/extrovermectin";
+import { bestMidnightAvailable } from "./resources/gingerbread";
+import { shouldUnlockIngredients, tryFillLatte } from "./resources/latte";
+import { shouldClara, willYachtzee } from "./resources/yachtzee";
+import { freeFightFamiliar } from "./familiar/freeFightFamiliar";
 import {
-  freeFightFamiliar,
   meatFamiliar,
   setBestLeprechaunAsMeatFamiliar,
-} from "./familiar";
+} from "./familiar/meatFamiliar";
 import {
   aprilFoolsRufus,
   asArray,
@@ -141,7 +139,6 @@ import {
   isStrongScaler,
   kramcoGuaranteed,
   lastAdventureWasWeird,
-  logMessage,
   ltbRun,
   mapMonster,
   maxPassiveDamage,
@@ -158,28 +155,22 @@ import {
   userConfirmDialog,
   valueDrops,
 } from "./lib";
+import { logMessage } from "./log";
 import { freeFightMood, meatMood } from "./mood";
-import {
-  freeFightOutfit,
-  FreeFightOutfitMenuOptions,
-  magnifyingGlass,
-  meatTargetOutfit,
-  toSpec,
-} from "./outfit";
+import { magnifyingGlass } from "./outfit/dropsgear";
+import { freeFightOutfit, FreeFightOutfitMenuOptions } from "./outfit/free";
+import { toSpec } from "./outfit/lib";
+import { meatTargetOutfit } from "./outfit/target";
 import postCombatActions from "./post";
 import { bathroomFinance, potionSetup } from "./potions";
 import { garboValue } from "./garboValue";
 import { wanderer } from "./garboWanderer";
 import { runTargetFight } from "./target/execution";
 import { TargetFightRunOptions } from "./target/staging";
-import {
-  EmbezzlerFightsQuest,
-  FreeFightQuest,
-  FreeMimicEggDonationQuest,
-  runGarboQuests,
-} from "./tasks";
+
 import {
   expectedFreeFightQuestFights,
+  FreeFightQuest,
   possibleFreeFightQuestTentacleFights,
 } from "./tasks/freeFight";
 import { PostQuest } from "./tasks/post";
@@ -189,7 +180,9 @@ import {
 } from "./tasks/freeGiantSandworm";
 import {
   CopyTargetFight,
+  copyTargetSources,
   escapeRefusedTimeSpinner,
+  getNextCopyTargetFight,
   timeSpinnerOffers,
 } from "./target/fights";
 import {
@@ -583,6 +576,7 @@ type FreeFightOptions = {
   spec?: Delayed<OutfitSpec>;
   noncombat?: () => boolean;
   effects?: () => Effect[];
+  postTask?: () => void;
 
   // Tells us if this fight can reasonably be expected to do familiar
   // actions like meatifying matter, or crimbo shrub red raying.
@@ -1271,13 +1265,17 @@ const priorityFreeRunFightSources = [
     () =>
       have($familiar`Patriotic Eagle`) &&
       !have($effect`Citizen of a Zone`) &&
-      $locations`Barf Mountain, The Fun-Guy Mansion`.some((l) =>
-        canAdventure(l),
+      $locations`Barf Mountain, The Fun-Guy Mansion, The Dire Warren`.some(
+        (l) => canAdventure(l),
       ),
     (runSource: ActionSource) => {
-      const location = canAdventure($location`Barf Mountain`)
-        ? $location`Barf Mountain`
-        : $location`The Fun-Guy Mansion`;
+      const location =
+        $locations`Barf Mountain, The Fun-Guy Mansion, The Dire Warren`.find(
+          (l) => canAdventure(l),
+        );
+      if (!location) {
+        throw new Error("Somehow, we can't adventure in the Dire Warren.");
+      }
       garboAdventure(
         location,
         Macro.skill($skill`%fn, let's pledge allegiance to a Zone`).step(
@@ -1294,7 +1292,7 @@ const priorityFreeRunFightSources = [
       },
       location: canAdventure($location`Barf Mountain`)
         ? $location`Barf Mountain`
-        : $location`The Fun-Guy Mansion`,
+        : $location`The Dire Warren`,
     },
   ),
 ];
@@ -1794,7 +1792,11 @@ export function freeFights(): void {
 
   // TODO: Run grimorized free fights until all are converted
   // TODO: freeFightMood()
-  runGarboQuests([PostQuest(), FreeFightQuest, FreeGiantSandwormQuest]);
+  runGarboQuests([
+    PostQuest<unknown>(),
+    FreeFightQuest,
+    FreeGiantSandwormQuest,
+  ]);
 
   // Run any community endeavors
   runGarboQuests([PostQuest(), undelay(FreeMimicEggDonationQuest)]);
@@ -2371,3 +2373,6 @@ function runShadowRiftTurn(): void {
     adv1(bestShadowRift(), -1, ""); // We wanted to use NC forcers, but none are suitable now
   }
 }
+import { EmbezzlerFightsQuest } from "./tasks/embezzler";
+import { runGarboQuests } from "./tasks/engine";
+import { FreeMimicEggDonationQuest } from "./tasks/freeEggDonation";
