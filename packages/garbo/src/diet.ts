@@ -96,12 +96,10 @@ import {
 import { acquire, priceCaps } from "./acquire";
 import { withVIPClan } from "./clan";
 import { globalOptions } from "./config";
-import {
-  beretEffectValue,
-  expectedGregs,
-  shouldAugustCast,
-  synthesize,
-} from "./resources";
+import { beretEffectValue } from "./resources/beret";
+import { expectedGregs } from "./resources/extrovermectin";
+import { shouldAugustCast } from "./resources/scepter";
+import { synthesize } from "./resources/synthesis";
 import {
   arrayEquals,
   HIGHLIGHT,
@@ -119,6 +117,7 @@ import {
 } from "./turns";
 import { garboValue } from "./garboValue";
 import { GarboWorkshed } from "./tasks/post/worksheds";
+import { FarmingStrategy } from "./farmingStrategy";
 
 const MPA = get("valueOfAdventure");
 print(`Using adventure value ${MPA}.`, HIGHLIGHT);
@@ -1496,7 +1495,7 @@ export function runDiet(): void {
           $item`Asdon Martin keyfob (on ring)`
         ) {
           AsdonMartin.drive(
-            $effect`Driving Observantly`,
+            FarmingStrategy.asdonEffect,
             dietAdventures(dietBuilder.diet()) +
               (globalOptions.ascend ? 0 : estimatedTurnsTomorrow),
           );

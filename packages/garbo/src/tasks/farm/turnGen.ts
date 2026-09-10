@@ -54,7 +54,7 @@ const TurnGenTasks: GarboTask[] = [
   },
 ];
 
-export const TurnGenQuest: Quest<GarboTask> = {
+export const TurnGenQuest: Quest<GarboTask, unknown> = {
   name: "Turn Gen",
   tasks: TurnGenTasks,
 };

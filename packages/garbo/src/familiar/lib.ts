@@ -28,7 +28,6 @@ import {
   ESTIMATED_OVERDRUNK_TURNS,
   isFree,
   targetMeat,
-  turnsToNC,
 } from "../lib";
 import {
   estimatedGarboTurns,
@@ -36,8 +35,9 @@ import {
   wanderingCopytargetsRemaining,
 } from "../turns";
 import { garboValue } from "../garboValue";
-import { copyTargetCount } from "../target";
-import { canBullseye, safeToAttemptBullseye } from "../resources";
+import { copyTargetCount } from "../target/fights";
+import { canBullseye, safeToAttemptBullseye } from "../resources/everfullDarts";
+import { FarmingStrategy } from "../farmingStrategy";
 
 export type FamiliarMode = "barf" | "free" | "target" | "run";
 
@@ -136,7 +136,7 @@ export function turnsAvailable(): number {
       : 0;
 
   const barfTurns = baseTurns - digitizes - mapTurns;
-  const barfCombatRate = 1 - 1 / turnsToNC;
+  const barfCombatRate = 1 - 1 / FarmingStrategy.turnsToNC();
   return barfTurns * barfCombatRate;
 }
 

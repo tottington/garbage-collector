@@ -5,6 +5,7 @@ import {
   canEquip,
   cliExecute,
   currentRound,
+  effectFact,
   equip,
   getCampground,
   getClanName,
@@ -34,6 +35,7 @@ import {
 import {
   $class,
   $classes,
+  $effect,
   $familiars,
   $item,
   $items,
@@ -59,7 +61,7 @@ import {
   withProperty,
 } from "libram";
 import { stashItems, withStash, withVIPClan } from "./clan";
-import { globalOptions, isQuickGear } from "./config";
+import { FarmingMethod, globalOptions, isQuickGear } from "./config";
 import { dailySetup } from "./dailies";
 import { nonOrganAdventures, runDiet } from "./diet";
 import { dailyFights, freeFights } from "./fights";
@@ -69,7 +71,6 @@ import {
   HIGHLIGHT,
   isFreeAndCopyable,
   printEventLog,
-  printLog,
   propertyManager,
   questStep,
   safeRestore,
@@ -78,28 +79,25 @@ import {
   userConfirmDialog,
   valueDrops,
 } from "./lib";
+import { printLog } from "./log";
 import { meatMood } from "./mood";
 import { potionSetup } from "./potions";
 import { endSession, startSession } from "./session";
 import { estimatedGarboTurns } from "./turns";
 import { garboAverageValue } from "./garboValue";
-import {
-  CockroachSetup,
-  DailyFamiliarsQuest,
-  EmbezzlerFightsQuest,
-  FarmQuests,
-  FinishUpQuest,
-  PostQuest,
-  runGarboQuests,
-  runSafeGarboQuests,
-  SetupTargetCopyQuest,
-} from "./tasks";
+
 import {
   BuffExtensionQuest,
   PostBuffExtensionQuest,
 } from "./tasks/buffExtension";
 import { shouldAffirmationHate } from "./combat";
 import { acquire } from "./acquire";
+import { FarmingStrategy } from "./farmingStrategy";
+import {
+  runGarboFarmQuests,
+  runGarboQuests,
+  runSafeGarboQuests,
+} from "./tasks/engine";
 
 // Max price for tickets. You should rethink whether Barf is the best place if they're this expensive.
 const TICKET_MAX_PRICE = 500000;
@@ -133,6 +131,15 @@ export function main(argString = ""): void {
   if (globalOptions.help) {
     Args.showHelp(globalOptions);
     return;
+  }
+
+  // Cowo is for professionals only
+  if (
+    globalOptions.prefs.farmingMethod === FarmingMethod.THE_CORAL_CORRAL &&
+    (effectFact($monster`sea cow`) !== $effect`Fishy` ||
+      get("seahorseName") === "")
+  ) {
+    globalOptions.prefs.farmingMethod = FarmingMethod.BARF_MOUNTAIN;
   }
 
   // Hit up main.php to get out of easily escapable choices
@@ -311,7 +318,11 @@ export function main(argString = ""): void {
   examine($item`designer sweatpants`);
 
   startSession();
-  if (!globalOptions.nobarf && !globalOptions.simdiet) {
+  if (
+    !globalOptions.nobarf &&
+    !globalOptions.simdiet &&
+    FarmingStrategy.ensureBarfAccess
+  ) {
     ensureBarfAccess();
   }
 
@@ -630,7 +641,7 @@ export function main(argString = ""): void {
           runGarboQuests([BuffExtensionQuest, PostBuffExtensionQuest]);
           if (!targetingMeat()) runGarboQuests([EmbezzlerFightsQuest]);
           try {
-            runGarboQuests([PostQuest(), ...FarmQuests]);
+            runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
             runGarboQuests([FinishUpQuest]);
           } finally {
             setAutoAttack(0);
@@ -653,3 +664,10 @@ export function main(argString = ""): void {
   }
   set(completedProperty, ["garbo", argString].filter(Boolean).join(" "));
 }
+import { CockroachSetup } from "./tasks/cockroach/prep";
+import { DailyFamiliarsQuest } from "./tasks/dailyFamiliars";
+import { EmbezzlerFightsQuest } from "./tasks/embezzler";
+import { FarmQuests } from "./tasks/farm";
+import { FinishUpQuest } from "./tasks/finishUp";
+import { PostQuest } from "./tasks/post";
+import { SetupTargetCopyQuest } from "./tasks/target";
