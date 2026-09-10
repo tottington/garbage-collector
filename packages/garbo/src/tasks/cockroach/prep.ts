@@ -43,6 +43,17 @@ import { meatMood } from "../../mood";
 import { potionSetup } from "../../potions";
 import { highMeatMonsterCount } from "../../turns";
 
+// KoL will not start a voyage without this many adventures in hand.
+const PIRATEREALM_DAY_TURNS = 40;
+
+/**
+ * Whether the port will refuse to start a voyage.
+ * @returns Whether to offer to retarget away from cockroach
+ */
+function cannotAffordPirateRealm(): boolean {
+  return myAdventures() <= PIRATEREALM_DAY_TURNS;
+}
+
 export const CockroachSetup: Quest<GarboTask> = {
   name: "Setup Cockroach Target",
   ready: () =>
@@ -53,12 +64,12 @@ export const CockroachSetup: Quest<GarboTask> = {
   tasks: [
     {
       name: "40 Adventure Failsafe",
-      ready: () => myAdventures() <= 40,
+      ready: () => cannotAffordPirateRealm(),
       completed: () => have($item`PirateRealm eyepatch`),
       do: () => {
         if (
           userConfirmDialog(
-            "You don't have enough adventures to do piraterealm; would you like us to automatically change your copy target to a Knob Goblin Guard? Otherwise, we're going to abort.",
+            `You don't have enough adventures to do piraterealm (${myAdventures()} now, and we need more than ${PIRATEREALM_DAY_TURNS} in hand); would you like us to automatically change your copy target to a Knob Goblin Guard? Otherwise, we're going to abort.`,
             true,
           )
         ) {
@@ -213,6 +224,7 @@ export const CockroachSetup: Quest<GarboTask> = {
               },
             ),
             avoid: $items`Roman Candelabra`,
+            modifier: Stat.all().map((stat) => `-${stat}`),
           },
           get("_lastPirateRealmIsland", $location`none`),
         ),
