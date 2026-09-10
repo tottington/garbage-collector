@@ -224,8 +224,6 @@ export const CockroachSetup: Quest<GarboTask> = {
               },
             ),
             avoid: $items`Roman Candelabra`,
-            // Stats must stay at or under 100, and DebuffPlanner only spends
-            // potions to get there -- gear stats are overhead it cannot undo.
             modifier: Stat.all().map((stat) => `-${stat}`),
           },
           get("_lastPirateRealmIsland", $location`none`),
