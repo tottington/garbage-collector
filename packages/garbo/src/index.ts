@@ -1,7 +1,6 @@
 import { Args } from "grimoire-kolmafia";
 import {
   abort,
-  buy,
   canEquip,
   cliExecute,
   currentRound,
@@ -92,23 +91,12 @@ import {
 import { shouldAffirmationHate } from "./combat";
 import { acquire } from "./acquire";
 import { FarmingStrategy } from "./farmingStrategy";
+import { ensureBarfAccess } from "./resources/realm";
 import {
   runGarboFarmQuests,
   runGarboQuests,
   runSafeGarboQuests,
 } from "./tasks/engine";
-
-// Max price for tickets. You should rethink whether Barf is the best place if they're this expensive.
-const TICKET_MAX_PRICE = 500000;
-
-function ensureBarfAccess() {
-  if (!(get("stenchAirportAlways") || get("_stenchAirportToday"))) {
-    const ticket = $item`one-day ticket to Dinseylandfill`;
-    // TODO: Get better item acquisition logic that e.g. checks own mall store.
-    if (!have(ticket)) buy(1, ticket, TICKET_MAX_PRICE);
-    use(ticket);
-  }
-}
 
 function defaultTarget() {
   if ($skills`Curse of Weaksauce, Saucegeyser`.every((s) => have(s))) {
@@ -320,9 +308,10 @@ export function main(argString = ""): void {
   if (
     !globalOptions.nobarf &&
     !globalOptions.simdiet &&
-    FarmingStrategy.ensureBarfAccess
+    FarmingStrategy.ensureBarfAccess &&
+    !ensureBarfAccess()
   ) {
-    ensureBarfAccess();
+    throw new Error("Could not get into Dinseylandfill.");
   }
 
   if (globalOptions.simdiet) {
@@ -628,7 +617,11 @@ export function main(argString = ""): void {
           runGarboQuests([BuffExtensionQuest, PostBuffExtensionQuest]);
           if (!targetingMeat()) runGarboQuests([EmbezzlerFightsQuest]);
           try {
+            const farmLocation = FarmingStrategy.location;
             runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
+            if (FarmingStrategy.location !== farmLocation) {
+              runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
+            }
             runGarboQuests([FinishUpQuest]);
           } finally {
             setAutoAttack(0);

@@ -17,6 +17,11 @@
     "description": "Should skip verifying that your account has broken the prism? Set to true if you want to proceed regardless, and false if you'd like to be warned."
   },
   {
+    "name": "garbo_switchToBarf",
+    "type": "boolean",
+    "description": "Should a Coral Corral run move to Barf Mountain once Barf is worth more per turn? A one-day ticket to Dinseylandfill is only bought when the remaining turns repay it."
+  },
+  {
     "name": "garbo_valueOfFreeFight",
     "defaultValue": 2000,
     "description": "What is a free fight\run worth to you? (Default 2000)."

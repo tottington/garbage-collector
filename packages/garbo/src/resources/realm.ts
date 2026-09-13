@@ -1,9 +1,12 @@
 import {
+  buy,
   Item,
+  itemAmount,
   print,
   retrieveItem,
   retrievePrice,
   runChoice,
+  use,
   visitUrl,
 } from "kolmafia";
 import { $item, get, have, maxBy, property, set, withProperty } from "libram";
@@ -156,4 +159,27 @@ export function checkBarfQuest(): void {
     }
   }
   return;
+}
+
+// Max price for tickets. You should rethink whether Barf is the best place if they're this expensive.
+export const TICKET_MAX_PRICE = 500000;
+
+export function hasBarfAccess(): boolean {
+  return get("stenchAirportAlways") || get("_stenchAirportToday");
+}
+
+/**
+ * Use a one-day ticket to Dinseylandfill unless Barf Mountain is already open.
+ * @returns Whether Barf Mountain is open afterwards
+ */
+export function ensureBarfAccess(): boolean {
+  if (hasBarfAccess()) return true;
+  const ticket = $item`one-day ticket to Dinseylandfill`;
+  // TODO: Get better item acquisition logic that e.g. checks own mall store.
+  if (!have(ticket)) buy(1, ticket, TICKET_MAX_PRICE);
+  if (!have(ticket)) return false;
+  const tickets = itemAmount(ticket);
+  use(ticket);
+  // KoL keeps the ticket, and mafia sets no preference, when you already have access.
+  return hasBarfAccess() || itemAmount(ticket) === tickets;
 }
