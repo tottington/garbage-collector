@@ -7,6 +7,7 @@ import {
   mallPrice,
   numericModifier,
   print,
+  totalTurnsPlayed,
   use,
 } from "kolmafia";
 import {
@@ -43,6 +44,9 @@ import {
 } from "./resources/realm";
 import { EMPTY_CONTEXT } from "./tasks/context";
 import { estimatedGarboTurns } from "./turns";
+
+const CHECK_INTERVAL = 25;
+let nextCheck = 0;
 
 /**
  * Drop bonus at the current location.
@@ -104,18 +108,19 @@ function withFarmingMethod<T>(method: FarmingMethod, action: () => T): T {
 }
 
 /**
- * Expected value of one turn farming with a method, dressed in that method's farm outfit with the current buffs.
+ * Expected value of one turn farming with a method, with the current buffs.
  * @param method The farming method to value
+ * @param dress Whether to dress that method's farm outfit first, rather than reading the current outfit
  * @returns Meat per turn from meat and item drops, facts, red taffy and noncombat turns, less effect upkeep
  */
-function valuePerTurn(method: FarmingMethod): number {
+function valuePerTurn(method: FarmingMethod, dress: boolean): number {
   const strategy = farmingStrategyOptions(method);
   const turnsToNC = undelay(strategy.ncTurns ?? Infinity);
   const fightShare = turnsToNC === Infinity ? 1 : turnsToNC / (1 + turnsToNC);
   const meatPerFight = baseMeat(method);
   return withFarmingMethod(method, () =>
     withLocation(strategy.location, () => {
-      barfOutfit(FarmingStrategy.outfit(EMPTY_CONTEXT)).dress();
+      if (dress) barfOutfit(FarmingStrategy.outfit(EMPTY_CONTEXT)).dress();
       let meatBonus = dropBonus("Meat");
       let upkeep = 0;
       const scamTourists = $effect`How to Scam Tourists`;
@@ -175,40 +180,40 @@ function getBarfAccess(maxPrice: number): boolean {
   return realmAvailable("stench");
 }
 
+export function barfSwitchReady(): boolean {
+  return (
+    globalOptions.prefs.switchToBarf &&
+    globalOptions.prefs.farmingMethod === FarmingMethod.THE_CORAL_CORRAL &&
+    totalTurnsPlayed() >= nextCheck
+  );
+}
+
 /**
- * Right before farming, move a Coral Corral run to Barf Mountain when Barf is worth more for the rest of the day.
- * Values each zone in its own farm outfit with the day's buffs, finishing dressed for The Coral Corral. Without Dinseylandfill access, the gain has to cover a one-day ticket.
+ * Move a Coral Corral run to Barf Mountain when Barf is worth more for the rest of the day.
+ * Values The Coral Corral in the outfit just fought in, and Barf Mountain in its own farm outfit. Without Dinseylandfill access, the gain has to cover a one-day ticket.
  */
-export function switchToBarf(): void {
-  if (
-    !globalOptions.prefs.switchToBarf ||
-    globalOptions.prefs.farmingMethod !== FarmingMethod.THE_CORAL_CORRAL
-  ) {
-    return;
-  }
+export function checkBarfSwitch(): void {
+  nextCheck = totalTurnsPlayed() + CHECK_INTERVAL;
 
   const hasAccess = realmAvailable("stench");
   const ticket = $item`one-day ticket to Dinseylandfill`;
   const price = have(ticket) ? garboValue(ticket) : mallPrice(ticket);
   if (!hasAccess && !have(ticket) && (price <= 0 || price > TICKET_MAX_PRICE)) {
-    print(
-      "No one-day ticket to Dinseylandfill within the price cap, farming The Coral Corral.",
-    );
     return;
   }
 
   try {
-    const barf = valuePerTurn(FarmingMethod.BARF_MOUNTAIN);
-    const corral = valuePerTurn(FarmingMethod.THE_CORAL_CORRAL);
+    const corral = valuePerTurn(FarmingMethod.THE_CORAL_CORRAL, false);
+    const barf = valuePerTurn(FarmingMethod.BARF_MOUNTAIN, true);
     const turns = estimatedGarboTurns();
     const cost = hasAccess ? 0 : accessCost(turns, price);
     print(
-      `Barf Mountain ${barf.toFixed(0)}/turn, The Coral Corral ${corral.toFixed(0)}/turn, ${turns.toFixed(0)} turns, Dinseylandfill access ${cost.toFixed(0)}.`,
+      `Barf Mountain ${barf.toFixed(0)}/turn, The Coral Corral ${corral.toFixed(0)}/turn, ${turns.toFixed(0)} turns left, Dinseylandfill access ${cost.toFixed(0)}.`,
     );
     if ((barf - corral) * turns <= cost) return;
     if (!hasAccess && !getBarfAccess(price)) {
       print(
-        "Could not get into Dinseylandfill, farming The Coral Corral.",
+        "Could not get into Dinseylandfill, staying at The Coral Corral.",
         HIGHLIGHT,
       );
       return;
@@ -220,7 +225,7 @@ export function switchToBarf(): void {
     return;
   }
 
-  print("Farming Barf Mountain instead of The Coral Corral.", HIGHLIGHT);
+  print("Switching to Barf Mountain.", HIGHLIGHT);
   globalOptions.prefs.farmingMethod = FarmingMethod.BARF_MOUNTAIN;
   if (!hasAccess && attemptCompletingBarfQuest()) checkBarfQuest();
 }

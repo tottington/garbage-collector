@@ -98,7 +98,6 @@ import {
   runSafeGarboQuests,
 } from "./tasks/engine";
 import { TICKET_MAX_PRICE } from "./resources/realm";
-import { switchToBarf } from "./barfSwitch";
 
 function ensureBarfAccess() {
   if (!(get("stenchAirportAlways") || get("_stenchAirportToday"))) {
@@ -626,9 +625,12 @@ export function main(argString = ""): void {
           meatMood().execute(estimatedGarboTurns());
           runGarboQuests([BuffExtensionQuest, PostBuffExtensionQuest]);
           if (!targetingMeat()) runGarboQuests([EmbezzlerFightsQuest]);
-          switchToBarf();
           try {
+            const farmLocation = FarmingStrategy.location;
             runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
+            if (FarmingStrategy.location !== farmLocation) {
+              runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
+            }
             runGarboQuests([FinishUpQuest]);
           } finally {
             setAutoAttack(0);
