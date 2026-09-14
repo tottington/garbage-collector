@@ -93,8 +93,18 @@ function dropValuePerFight(location: Location, itemBonus: number): number {
   );
 }
 
+function withFarmingMethod<T>(method: FarmingMethod, action: () => T): T {
+  const current = globalOptions.prefs.farmingMethod;
+  globalOptions.prefs.farmingMethod = method;
+  try {
+    return action();
+  } finally {
+    globalOptions.prefs.farmingMethod = current;
+  }
+}
+
 /**
- * Expected value of one turn farming with a method, with the current buffs and outfit.
+ * Expected value of one turn farming with a method, dressed in that method's farm outfit with the current buffs.
  * @param method The farming method to value
  * @returns Meat per turn from meat and item drops, facts, red taffy and noncombat turns, less effect upkeep
  */
@@ -103,29 +113,34 @@ function valuePerTurn(method: FarmingMethod): number {
   const turnsToNC = undelay(strategy.ncTurns ?? Infinity);
   const fightShare = turnsToNC === Infinity ? 1 : turnsToNC / (1 + turnsToNC);
   const meatPerFight = baseMeat(method);
-  return withLocation(strategy.location, () => {
-    let meatBonus = dropBonus("Meat");
-    let upkeep = 0;
-    const scamTourists = $effect`How to Scam Tourists`;
-    if ((strategy.bonusEffects ?? []).includes(scamTourists)) {
-      const scams = $item`How to Avoid Scams`;
-      const scamBonus = getModifier("Meat Drop", scamTourists);
-      const price = mallPrice(scams);
-      const duration = getModifier("Effect Duration", scams);
-      if (have(scamTourists)) meatBonus -= scamBonus;
-      // Same price cap as the How to Avoid Scams entry in meatMood.
-      if (price > 0 && price <= 3 * meatPerFight * duration) {
-        meatBonus += scamBonus;
-        upkeep = price / duration;
+  return withFarmingMethod(method, () =>
+    withLocation(strategy.location, () => {
+      barfOutfit(FarmingStrategy.outfit(EMPTY_CONTEXT)).dress();
+      let meatBonus = dropBonus("Meat");
+      let upkeep = 0;
+      const scamTourists = $effect`How to Scam Tourists`;
+      if ((strategy.bonusEffects ?? []).includes(scamTourists)) {
+        const scams = $item`How to Avoid Scams`;
+        const scamBonus = getModifier("Meat Drop", scamTourists);
+        const price = mallPrice(scams);
+        const duration = getModifier("Effect Duration", scams);
+        if (have(scamTourists)) meatBonus -= scamBonus;
+        // Same price cap as the How to Avoid Scams entry in meatMood.
+        if (price > 0 && price <= 3 * meatPerFight * duration) {
+          meatBonus += scamBonus;
+          upkeep = price / duration;
+        }
       }
-    }
 
-    let drops = dropValuePerFight(strategy.location, dropBonus("Item"));
-    if (strategy.location.environment === "underwater" && redTaffyWorth()) {
-      drops += redTaffyExpectedValue() - mallPrice($item`pulled red taffy`);
-    }
-    return fightShare * (meatPerFight * (1 + meatBonus / 100) + drops) - upkeep;
-  });
+      let drops = dropValuePerFight(strategy.location, dropBonus("Item"));
+      if (strategy.location.environment === "underwater" && redTaffyWorth()) {
+        drops += redTaffyExpectedValue() - mallPrice($item`pulled red taffy`);
+      }
+      return (
+        fightShare * (meatPerFight * (1 + meatBonus / 100) + drops) - upkeep
+      );
+    }),
+  );
 }
 
 /**
@@ -162,7 +177,7 @@ function getBarfAccess(maxPrice: number): boolean {
 
 /**
  * Right before farming, move a Coral Corral run to Barf Mountain when Barf is worth more for the rest of the day.
- * Values both zones in the Coral Corral farm outfit with the day's buffs. Without Dinseylandfill access, the gain has to cover a one-day ticket.
+ * Values each zone in its own farm outfit with the day's buffs, finishing dressed for The Coral Corral. Without Dinseylandfill access, the gain has to cover a one-day ticket.
  */
 export function switchToBarf(): void {
   if (
@@ -183,9 +198,6 @@ export function switchToBarf(): void {
   }
 
   try {
-    withLocation(FarmingStrategy.location, () =>
-      barfOutfit(FarmingStrategy.outfit(EMPTY_CONTEXT)).dress(),
-    );
     const barf = valuePerTurn(FarmingMethod.BARF_MOUNTAIN);
     const corral = valuePerTurn(FarmingMethod.THE_CORAL_CORRAL);
     const turns = estimatedGarboTurns();
