@@ -97,9 +97,7 @@ import {
   runGarboQuests,
   runSafeGarboQuests,
 } from "./tasks/engine";
-
-// Max price for tickets. You should rethink whether Barf is the best place if they're this expensive.
-const TICKET_MAX_PRICE = 500000;
+import { TICKET_MAX_PRICE } from "./resources/realm";
 
 function ensureBarfAccess() {
   if (!(get("stenchAirportAlways") || get("_stenchAirportToday"))) {
@@ -628,7 +626,11 @@ export function main(argString = ""): void {
           runGarboQuests([BuffExtensionQuest, PostBuffExtensionQuest]);
           if (!targetingMeat()) runGarboQuests([EmbezzlerFightsQuest]);
           try {
+            const farmLocation = FarmingStrategy.location;
             runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
+            if (FarmingStrategy.location !== farmLocation) {
+              runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
+            }
             runGarboQuests([FinishUpQuest]);
           } finally {
             setAutoAttack(0);

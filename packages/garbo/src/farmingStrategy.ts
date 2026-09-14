@@ -40,13 +40,15 @@ import { completeBarfQuest } from "./resources/realm";
 import { FarmingContext } from "./tasks/context";
 import { garboValue } from "./garboValue";
 
-export function redTaffyWorth(): boolean {
-  const averageRedTaffyValue = sum(
+export function redTaffyExpectedValue(): number {
+  return sum(
     [...PulledTaffy.RED_TAFFY_DROP_WEIGHTS.entries()],
     ([item, weight]) => garboValue(item) * weight,
   );
+}
 
-  return mallPrice($item`pulled red taffy`) < averageRedTaffyValue;
+export function redTaffyWorth(): boolean {
+  return mallPrice($item`pulled red taffy`) < redTaffyExpectedValue();
 }
 
 const olfactionCopies = have($skill`Transcendent Olfaction`) ? 3 : 0;
@@ -263,8 +265,10 @@ const THE_CORAL_CORRAL: FarmingStrategyOptions = {
   }),
 };
 
-function currentStrategy(): FarmingStrategyOptions {
-  switch (globalOptions.prefs.farmingMethod) {
+export function farmingStrategyOptions(
+  method: FarmingMethod,
+): FarmingStrategyOptions {
+  switch (method) {
     case FarmingMethod.THE_CORAL_CORRAL:
       return THE_CORAL_CORRAL;
 
@@ -272,4 +276,8 @@ function currentStrategy(): FarmingStrategyOptions {
     default:
       return BARF_MOUNTAIN;
   }
+}
+
+function currentStrategy(): FarmingStrategyOptions {
+  return farmingStrategyOptions(globalOptions.prefs.farmingMethod);
 }
