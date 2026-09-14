@@ -19,7 +19,7 @@
   {
     "name": "garbo_switchToBarf",
     "type": "boolean",
-    "description": "Should garbo check every 25 turns while farming The Coral Corral whether Barf Mountain is worth more for the rest of the day, and move to Barf if so? A one-day ticket to Dinseylandfill is only bought when the gain covers it."
+    "description": "Should garbo plan, when farming The Coral Corral starts, the turn at which moving to Barf Mountain earns the most for the rest of the day as buffs run out, and move then? A one-day ticket to Dinseylandfill is only bought when the gain covers it."
   },
   {
     "name": "garbo_valueOfFreeFight",

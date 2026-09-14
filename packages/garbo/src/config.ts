@@ -289,7 +289,7 @@ You can use multiple options in conjunction, e.g. "garbo nobarf ascend"',
         ),
         switchToBarf: Args.boolean({
           setting: "garbo_switchToBarf",
-          help: "Set to true to check every 25 turns while farming The Coral Corral whether Barf Mountain is worth more for the rest of the day, and move to Barf if so. A one-day ticket to Dinseylandfill is only bought when the gain covers it.",
+          help: "Set to true to plan, when farming The Coral Corral starts, the turn at which moving to Barf Mountain earns the most for the rest of the day as buffs run out, and move then. A one-day ticket to Dinseylandfill is only bought when the gain covers it.",
           default: false,
         }),
       },
