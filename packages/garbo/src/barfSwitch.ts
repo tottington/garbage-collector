@@ -1,4 +1,5 @@
 import {
+  buy,
   getMonsters,
   itemAmount,
   itemDropsArray,
@@ -6,6 +7,7 @@ import {
   mallPrice,
   numericModifier,
   print,
+  use,
 } from "kolmafia";
 import {
   $effect,
@@ -18,7 +20,6 @@ import {
   getModifier,
   have,
   realmAvailable,
-  set,
   sum,
   undelay,
 } from "libram";
@@ -32,62 +33,27 @@ import {
 } from "./farmingStrategy";
 import { garboValue } from "./garboValue";
 import { baseMeat, HIGHLIGHT, withLocation } from "./lib";
+import { barfOutfit } from "./outfit/barf";
 import { luckyGoldRingDropValues } from "./outfit/dropsgearAccessories";
 import { effectValue } from "./potions";
-import { TICKET_MAX_PRICE } from "./resources/realm";
+import {
+  attemptCompletingBarfQuest,
+  checkBarfQuest,
+  TICKET_MAX_PRICE,
+} from "./resources/realm";
+import { EMPTY_CONTEXT } from "./tasks/context";
 import { estimatedGarboTurns } from "./turns";
 
-type DropBonuses = {
-  meat: number;
-  item: number;
-  meatPenalty: number;
-  itemPenalty: number;
-};
-
-const MEAT_DROP = "garboFarmMeatDrop";
-const ITEM_DROP = "garboFarmItemDrop";
-const MEAT_DROP_PENALTY = "garboUnderwaterMeatDropPenalty";
-const ITEM_DROP_PENALTY = "garboUnderwaterItemDropPenalty";
-
-const samples = {
-  turns: 0,
-  underwaterTurns: 0,
-  meat: 0,
-  item: 0,
-  meatPenalty: 0,
-  itemPenalty: 0,
-};
-
 /**
- * Keep a running average of this run's farming drop bonuses in preferences.
- * Meat Drop excludes How to Scam Tourists, and underwater penalties are kept separately.
+ * Drop bonus at the current location.
+ * @param type Which drop bonus to read
+ * @returns The bonus in percent, with any remaining underwater penalty applied
  */
-export function recordFarmingDropBonuses(): void {
-  if (!globalOptions.prefs.switchToBarf) return;
-  const scamTourists = $effect`How to Scam Tourists`;
-  samples.turns++;
-  samples.meat +=
-    numericModifier("Meat Drop") -
-    (have(scamTourists) ? getModifier("Meat Drop", scamTourists) : 0);
-  samples.item += numericModifier("Item Drop");
-  set(MEAT_DROP, samples.meat / samples.turns);
-  set(ITEM_DROP, samples.item / samples.turns);
-
-  if (!FarmingStrategy.isUnderwater()) return;
-  samples.underwaterTurns++;
-  samples.meatPenalty += Math.min(numericModifier("Meat Drop Penalty"), 0);
-  samples.itemPenalty += Math.min(numericModifier("Item Drop Penalty"), 0);
-  set(MEAT_DROP_PENALTY, samples.meatPenalty / samples.underwaterTurns);
-  set(ITEM_DROP_PENALTY, samples.itemPenalty / samples.underwaterTurns);
-}
-
-function recordedDropBonuses(): DropBonuses | null {
-  const values = [MEAT_DROP, ITEM_DROP, MEAT_DROP_PENALTY, ITEM_DROP_PENALTY]
-    .map((property) => get(property, ""))
-    .map((value) => (value === "" ? NaN : Number(value)));
-  if (values.some((value) => !isFinite(value))) return null;
-  const [meat, item, meatPenalty, itemPenalty] = values;
-  return { meat, item, meatPenalty, itemPenalty };
+function dropBonus(type: "Meat" | "Item"): number {
+  return (
+    numericModifier(`${type} Drop`) +
+    Math.min(numericModifier(`${type} Drop Penalty`), 0)
+  );
 }
 
 /**
@@ -128,54 +94,47 @@ function dropValuePerFight(location: Location, itemBonus: number): number {
 }
 
 /**
- * Expected value of one turn farming with a method.
+ * Expected value of one turn farming with a method, with the current buffs and outfit.
  * @param method The farming method to value
- * @param bonuses Drop bonuses to farm with
  * @returns Meat per turn from meat and item drops, facts, red taffy and noncombat turns, less effect upkeep
  */
-function valuePerTurn(method: FarmingMethod, bonuses: DropBonuses): number {
+function valuePerTurn(method: FarmingMethod): number {
   const strategy = farmingStrategyOptions(method);
   const turnsToNC = undelay(strategy.ncTurns ?? Infinity);
   const fightShare = turnsToNC === Infinity ? 1 : turnsToNC / (1 + turnsToNC);
   const meatPerFight = baseMeat(method);
-  const underwater = strategy.location.environment === "underwater";
-  let meatBonus = bonuses.meat + (underwater ? bonuses.meatPenalty : 0);
-  const itemBonus = bonuses.item + (underwater ? bonuses.itemPenalty : 0);
-
-  let upkeep = 0;
-  const scamTourists = $effect`How to Scam Tourists`;
-  if ((strategy.bonusEffects ?? []).includes(scamTourists)) {
-    const scams = $item`How to Avoid Scams`;
-    const price = mallPrice(scams);
-    const duration = getModifier("Effect Duration", scams);
-    // Same price cap as the How to Avoid Scams entry in meatMood.
-    if (price > 0 && price <= 3 * meatPerFight * duration) {
-      meatBonus += withLocation(strategy.location, () =>
-        getModifier("Meat Drop", scamTourists),
-      );
-      upkeep = price / duration;
+  return withLocation(strategy.location, () => {
+    let meatBonus = dropBonus("Meat");
+    let upkeep = 0;
+    const scamTourists = $effect`How to Scam Tourists`;
+    if ((strategy.bonusEffects ?? []).includes(scamTourists)) {
+      const scams = $item`How to Avoid Scams`;
+      const scamBonus = getModifier("Meat Drop", scamTourists);
+      const price = mallPrice(scams);
+      const duration = getModifier("Effect Duration", scams);
+      if (have(scamTourists)) meatBonus -= scamBonus;
+      // Same price cap as the How to Avoid Scams entry in meatMood.
+      if (price > 0 && price <= 3 * meatPerFight * duration) {
+        meatBonus += scamBonus;
+        upkeep = price / duration;
+      }
     }
-  }
 
-  let drops = dropValuePerFight(strategy.location, itemBonus);
-  if (underwater && redTaffyWorth()) {
-    drops += redTaffyExpectedValue() - mallPrice($item`pulled red taffy`);
-  }
-  return fightShare * (meatPerFight * (1 + meatBonus / 100) + drops) - upkeep;
+    let drops = dropValuePerFight(strategy.location, dropBonus("Item"));
+    if (strategy.location.environment === "underwater" && redTaffyWorth()) {
+      drops += redTaffyExpectedValue() - mallPrice($item`pulled red taffy`);
+    }
+    return fightShare * (meatPerFight * (1 + meatBonus / 100) + drops) - upkeep;
+  });
 }
 
 /**
- * Cost of getting into Dinseylandfill for the day.
+ * Cost of getting into Dinseylandfill for the rest of the day.
  * @param turns Turns left to farm
- * @returns The ticket price less the lucky gold ring's expected FunFunds, or Infinity with no ticket within the price cap
+ * @param price What a one-day ticket costs
+ * @returns The ticket price less the lucky gold ring's expected FunFunds
  */
-function ticketCost(turns: number): number {
-  if (realmAvailable("stench")) return 0;
-  const ticket = $item`one-day ticket to Dinseylandfill`;
-  const price = have(ticket) ? garboValue(ticket) : mallPrice(ticket);
-  if (!have(ticket) && (price <= 0 || price > TICKET_MAX_PRICE)) {
-    return Infinity;
-  }
+function accessCost(turns: number, price: number): number {
   if (!have($item`lucky gold ring`)) return price;
   // Each lucky gold ring drop picks evenly from its drop list, which gains FunFunds.
   const drops = luckyGoldRingDropValues(
@@ -190,37 +149,66 @@ function ticketCost(turns: number): number {
 }
 
 /**
- * Decide whether a Coral Corral run farms Barf Mountain instead, and switch the farming method if so.
- * @returns Whether the run needs Barf Mountain access
+ * Use a one-day ticket to Dinseylandfill, buying one for at most `maxPrice`.
+ * @param maxPrice Most to pay for a ticket
+ * @returns Whether Dinseylandfill is open afterwards
  */
-export function switchToBarf(): boolean {
-  if (!globalOptions.prefs.switchToBarf) return false;
-  const bonuses = recordedDropBonuses();
-  if (!bonuses) {
+function getBarfAccess(maxPrice: number): boolean {
+  const ticket = $item`one-day ticket to Dinseylandfill`;
+  if (!have(ticket)) buy(1, ticket, maxPrice);
+  if (have(ticket)) use(ticket);
+  return realmAvailable("stench");
+}
+
+/**
+ * Right before farming, move a Coral Corral run to Barf Mountain when Barf is worth more for the rest of the day.
+ * Values both zones in the Coral Corral farm outfit with the day's buffs. Without Dinseylandfill access, the gain has to cover a one-day ticket.
+ */
+export function switchToBarf(): void {
+  if (
+    !globalOptions.prefs.switchToBarf ||
+    globalOptions.prefs.farmingMethod !== FarmingMethod.THE_CORAL_CORRAL
+  ) {
+    return;
+  }
+
+  const hasAccess = realmAvailable("stench");
+  const ticket = $item`one-day ticket to Dinseylandfill`;
+  const price = have(ticket) ? garboValue(ticket) : mallPrice(ticket);
+  if (!hasAccess && !have(ticket) && (price <= 0 || price > TICKET_MAX_PRICE)) {
     print(
-      "No farming drop bonuses recorded yet, farming The Coral Corral.",
-      HIGHLIGHT,
+      "No one-day ticket to Dinseylandfill within the price cap, farming The Coral Corral.",
     );
-    return false;
+    return;
   }
 
   try {
-    const barf = valuePerTurn(FarmingMethod.BARF_MOUNTAIN, bonuses);
-    const corral = valuePerTurn(FarmingMethod.THE_CORAL_CORRAL, bonuses);
-    const turns = estimatedGarboTurns();
-    const ticket = ticketCost(turns);
-    print(
-      `Barf Mountain ${barf.toFixed(0)}/turn, The Coral Corral ${corral.toFixed(0)}/turn, ${turns.toFixed(0)} turns, Dinseylandfill access ${ticket.toFixed(0)}.`,
+    withLocation(FarmingStrategy.location, () =>
+      barfOutfit(FarmingStrategy.outfit(EMPTY_CONTEXT)).dress(),
     );
-    if ((barf - corral) * turns <= ticket) return false;
+    const barf = valuePerTurn(FarmingMethod.BARF_MOUNTAIN);
+    const corral = valuePerTurn(FarmingMethod.THE_CORAL_CORRAL);
+    const turns = estimatedGarboTurns();
+    const cost = hasAccess ? 0 : accessCost(turns, price);
+    print(
+      `Barf Mountain ${barf.toFixed(0)}/turn, The Coral Corral ${corral.toFixed(0)}/turn, ${turns.toFixed(0)} turns, Dinseylandfill access ${cost.toFixed(0)}.`,
+    );
+    if ((barf - corral) * turns <= cost) return;
+    if (!hasAccess && !getBarfAccess(price)) {
+      print(
+        "Could not get into Dinseylandfill, farming The Coral Corral.",
+        HIGHLIGHT,
+      );
+      return;
+    }
   } catch (error) {
     print(
       `Could not compare Barf Mountain to The Coral Corral: ${String(error)}`,
     );
-    return false;
+    return;
   }
 
   print("Farming Barf Mountain instead of The Coral Corral.", HIGHLIGHT);
   globalOptions.prefs.farmingMethod = FarmingMethod.BARF_MOUNTAIN;
-  return true;
+  if (!hasAccess && attemptCompletingBarfQuest()) checkBarfQuest();
 }

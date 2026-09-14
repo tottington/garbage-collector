@@ -16,7 +16,6 @@ import {
   updateParachuteFailure,
 } from "./lib";
 import { FarmingStrategy, redTaffyWorth } from "../../farmingStrategy";
-import { recordFarmingDropBonuses } from "../../barfSwitch";
 import { trackMarginalMpa } from "../../session";
 import { meatMood } from "../../mood";
 import { estimatedGarboTurns } from "../../turns";
@@ -71,7 +70,6 @@ export function FarmTurnQuest(): Quest<
         post: () => {
           FarmingStrategy.post?.();
           trackMarginalMpa();
-          recordFarmingDropBonuses();
 
           if (toMonster(get("lastEncounter")) === $monster`tumbleweed`) {
             throw new Error(

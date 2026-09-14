@@ -319,7 +319,7 @@ export function main(argString = ""): void {
   if (
     !globalOptions.nobarf &&
     !globalOptions.simdiet &&
-    (FarmingStrategy.ensureBarfAccess || switchToBarf())
+    FarmingStrategy.ensureBarfAccess
   ) {
     ensureBarfAccess();
   }
@@ -626,6 +626,7 @@ export function main(argString = ""): void {
           meatMood().execute(estimatedGarboTurns());
           runGarboQuests([BuffExtensionQuest, PostBuffExtensionQuest]);
           if (!targetingMeat()) runGarboQuests([EmbezzlerFightsQuest]);
+          switchToBarf();
           try {
             runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
             runGarboQuests([FinishUpQuest]);
