@@ -107,7 +107,7 @@ import { globalOptions } from "./config";
 import { garboAverageValue, garboValue } from "./garboValue";
 import { Outfit, OutfitSpec } from "grimoire-kolmafia";
 import { Macro } from "./combat";
-import { FarmingStrategy } from "./farmingStrategy";
+import { FarmingStrategy, farmingStrategyOptions } from "./farmingStrategy";
 
 export const eventLog: {
   initialCopyTargetsFought: number;
@@ -165,7 +165,8 @@ export const songboomMeat = () =>
     : 0;
 
 // all tourists have a basemeat of 250
-export const baseMeat = () => FarmingStrategy.baseMeat + songboomMeat();
+export const baseMeat = (method = globalOptions.prefs.farmingMethod) =>
+  farmingStrategyOptions(method).baseMeat + songboomMeat();
 export const targetMeat = () => meatDrop(globalOptions.target) + songboomMeat();
 export const basePointerRingMeat = () => 500;
 export const targetPointerRingMeat = () => {

@@ -16,7 +16,7 @@ import {
   updateParachuteFailure,
 } from "./lib";
 import { FarmingStrategy, redTaffyWorth } from "../../farmingStrategy";
-import { barfSwitchReady, checkBarfSwitch } from "../../barfSwitch";
+import { recordFarmingDropBonuses } from "../../barfSwitch";
 import { trackMarginalMpa } from "../../session";
 import { meatMood } from "../../mood";
 import { estimatedGarboTurns } from "../../turns";
@@ -27,9 +27,8 @@ export function FarmTurnQuest(): Quest<
   GarboTask<FarmingContext>,
   FarmingContext
 > {
-  const location = FarmingStrategy.location;
   return {
-    name: `${location}`,
+    name: `${FarmingStrategy.location}`,
     tasks: [
       {
         name: "Parachute",
@@ -72,6 +71,7 @@ export function FarmTurnQuest(): Quest<
         post: () => {
           FarmingStrategy.post?.();
           trackMarginalMpa();
+          recordFarmingDropBonuses();
 
           if (toMonster(get("lastEncounter")) === $monster`tumbleweed`) {
             throw new Error(
@@ -88,12 +88,10 @@ export function FarmTurnQuest(): Quest<
               "You encountered a banishable monster and didn't banish it, sort your life out!",
             );
           }
-
-          if (barfSwitchReady()) checkBarfSwitch();
         },
         spendsTurn: true,
       },
     ],
-    completed: () => !canContinue() || FarmingStrategy.location !== location,
+    completed: () => !canContinue(),
   };
 }

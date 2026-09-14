@@ -19,7 +19,7 @@
   {
     "name": "garbo_switchToBarf",
     "type": "boolean",
-    "description": "Should a Coral Corral run move to Barf Mountain once Barf is worth more per turn? A one-day ticket to Dinseylandfill is only bought when the remaining turns repay it."
+    "description": "Should garbo farm Barf Mountain instead of The Coral Corral on days Barf is worth more, after paying for a one-day ticket to Dinseylandfill? Decided at startup from the drop bonuses of your last farming run."
   },
   {
     "name": "garbo_valueOfFreeFight",
