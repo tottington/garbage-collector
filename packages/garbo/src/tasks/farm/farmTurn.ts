@@ -21,6 +21,7 @@ import {
   FarmingStrategy,
   redTaffyWorth,
 } from "../../farmingStrategy";
+import { barfSwitchReady, checkBarfSwitch } from "../../barfSwitch";
 import { trackMarginalMpa } from "../../session";
 import { meatMood } from "../../mood";
 import { estimatedGarboTurns } from "../../turns";
@@ -66,8 +67,9 @@ export function FarmTurnQuest(): Quest<
   GarboTask<FarmingContext>,
   FarmingContext
 > {
+  const location = FarmingStrategy.location;
   return {
-    name: `${FarmingStrategy.location}`,
+    name: `${location}`,
     tasks: [
       {
         name: "Parachute",
@@ -114,10 +116,12 @@ export function FarmTurnQuest(): Quest<
               "You encountered a banishable monster and didn't banish it, sort your life out!",
             );
           }
+
+          if (barfSwitchReady()) checkBarfSwitch();
         },
         spendsTurn: true,
       },
     ],
-    completed: () => !canContinue(),
+    completed: () => !canContinue() || FarmingStrategy.location !== location,
   };
 }

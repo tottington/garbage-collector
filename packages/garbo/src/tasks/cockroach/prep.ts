@@ -133,6 +133,8 @@ export const CockroachSetup: Quest<GarboTask> = {
             (i) => have(i),
           ),
         modifier: Stat.all().map((stat) => `-${stat}`),
+        // Mafia only updates the PirateRealm resource prefs from the charpane.
+        beforeDress: [() => visitUrl("charpane.php")],
       }),
       choices: () => ({
         1365: 1,
@@ -148,7 +150,7 @@ export const CockroachSetup: Quest<GarboTask> = {
         1363: 2,
         1359: 1, // Emergency grog adventure, choice one seems more consistent?
         1358: 1, // Emergency grub adventure, choice one seems more consistent?
-        1367: 1, // Wrecked ship, this uses glue, need a pref for glue to make this not break if we don't have glue
+        1367: get("_pirateRealmGlue") > 0 ? 1 : 2, // Wrecked ship: glue repairs it, otherwise wait for assistance
       }),
       post: () => {
         // Escape wrecked ship, if no glue is available

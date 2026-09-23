@@ -3,6 +3,7 @@ import type { ValueFunctions } from "./value";
 import { WandererManager } from "./wanderer";
 import type { DraggableFight, WanderDetails, WanderOptions } from "./wanderer";
 import {
+  bofaValue,
   canAdventureOrUnlock,
   getAvailableUltraRareZones,
   hasNameCollision,
@@ -11,6 +12,7 @@ import {
 export {
   makeValue,
   WandererManager,
+  bofaValue,
   canAdventureOrUnlock,
   getAvailableUltraRareZones,
   hasNameCollision,
