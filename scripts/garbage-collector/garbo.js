@@ -32028,7 +32028,7 @@ function accessCost(turns, price) {
  * Plan when to move from The Coral Corral to Barf Mountain.
  * The rest of the day is split wherever an unmaintained effect runs out. Within a stretch both zones earn a constant amount, so the best switch is at the start of a stretch.
  * @param accessPrice Ticket price, or 0 with Dinseylandfill access
- * @returns Turns from now to the best switch and to the first and last switch that beats staying, or null if none does
+ * @returns Turns from now to the best switch and its gain, the first and last switch that beats staying if any, and the current values, or null with no turns left
  */
 function planSwitch(accessPrice) {
   var turns = Math.floor(estimatedGarboTurns());
@@ -32072,12 +32072,12 @@ function planSwitch(accessPrice) {
     var gain = _ref22.gain;
     return gain > 0;
   });
-  if (!worthwhile.length) return null;
-  var best = worthwhile.reduce((a, b) => b.gain > a.gain ? b : a, worthwhile[0]);
+  var best = gains.reduce((a, b) => b.gain > a.gain ? b : a, gains[0]);
   return {
     best: best.start,
-    first: worthwhile[0].start,
-    last: worthwhile[worthwhile.length - 1].start,
+    gain: best.gain,
+    range: worthwhile.length ? [worthwhile[0].start, worthwhile[worthwhile.length - 1].start] : null,
+    turns,
     barf: stretches[0].barf,
     corral: stretches[0].corral
   };
@@ -32114,12 +32114,14 @@ function checkBarfSwitch() {
   }
   try {
     var plan = planSwitch(hasAccess ? 0 : price);
-    if (!plan) {
+    if (!plan) return;
+    var now = kolmafia.totalTurnsPlayed();
+    kolmafia.print(`Barf Mountain ${plan.barf.toFixed(0)}/turn, The Coral Corral ${plan.corral.toFixed(0)}/turn now, ${plan.turns} turns left. Best switch at turn ${now + plan.best}, changing profit by ${plan.gain.toFixed(0)}.`);
+    if (!plan.range) {
       kolmafia.print("Barf Mountain does not pay more than The Coral Corral today.");
       return;
     }
-    var now = kolmafia.totalTurnsPlayed();
-    kolmafia.print(`Barf Mountain ${plan.barf.toFixed(0)}/turn, The Coral Corral ${plan.corral.toFixed(0)}/turn now. Switching pays from turn ${now + plan.first} to ${now + plan.last}, best at turn ${now + plan.best}.`);
+    kolmafia.print(`Switching pays from turn ${now + plan.range[0]} to ${now + plan.range[1]}.`);
     if (plan.best > 0) {
       nextCheck = now + plan.best;
       return;
