@@ -306,6 +306,11 @@ You can use multiple options in conjunction, e.g. "garbo nobarf ascend"',
           stringToFarmingMethod,
           "Farming Method",
         ),
+        switchToBarf: Args.boolean({
+          setting: "garbo_switchToBarf",
+          help: "Set to true to plan, when farming The Coral Corral starts, the turn at which moving to Barf Mountain earns the most for the rest of the day as buffs run out, and move then. A one-day ticket to Dinseylandfill is only bought when the gain covers it.",
+          default: false,
+        }),
       },
     ),
     /*

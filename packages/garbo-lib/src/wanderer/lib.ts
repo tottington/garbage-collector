@@ -392,7 +392,14 @@ export function wandererTurnsAvailableToday(
 
 const LIMITED_BOFA_DROPS = $items`pocket wish, tattered scrap of paper`;
 export function bofaValue(
-  { plentifulMonsters, itemValue, effectValue }: WandererFactoryOptions,
+  {
+    plentifulMonsters,
+    itemValue,
+    effectValue,
+  }: Pick<
+    WandererFactoryOptions,
+    "plentifulMonsters" | "itemValue" | "effectValue"
+  >,
   monster: Monster,
 ): number {
   switch (monster.factType) {

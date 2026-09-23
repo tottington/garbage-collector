@@ -262,8 +262,10 @@ const THE_CORAL_CORRAL: FarmingStrategyOptions = {
       .meatKill(),
 };
 
-function currentStrategy(): FarmingStrategyOptions {
-  switch (globalOptions.prefs.farmingMethod) {
+export function farmingStrategyOptions(
+  method: FarmingMethod,
+): FarmingStrategyOptions {
+  switch (method) {
     case FarmingMethod.THE_CORAL_CORRAL:
       return THE_CORAL_CORRAL;
 
@@ -271,4 +273,8 @@ function currentStrategy(): FarmingStrategyOptions {
     default:
       return BARF_MOUNTAIN;
   }
+}
+
+function currentStrategy(): FarmingStrategyOptions {
+  return farmingStrategyOptions(globalOptions.prefs.farmingMethod);
 }

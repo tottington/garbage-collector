@@ -157,3 +157,6 @@ export function checkBarfQuest(): void {
   }
   return;
 }
+
+// Max price for tickets. You should rethink whether Barf is the best place if they're this expensive.
+export const TICKET_MAX_PRICE = 500000;
