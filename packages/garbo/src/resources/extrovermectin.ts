@@ -1,4 +1,5 @@
 import {
+  canAdventure,
   canEquip,
   cliExecute,
   equip,
@@ -6,6 +7,7 @@ import {
   isBanished,
   Item,
   itemType,
+  Location,
   mallPrice,
   Monster,
   myFury,
@@ -249,14 +251,33 @@ export function equipOrbIfDesired(): void {
 }
 
 /**
- * Banish a Haunted Kitchen monster with the action that banished the crate, which frees the crate.
+ * @returns Where to banish another monster to free the crate: the Treasury when it's open, otherwise the Haunted Kitchen
+ */
+function unbanishLocation(): Location {
+  return canAdventure($location`Cobb's Knob Treasury`) && !have($effect`Lucky!`)
+    ? $location`Cobb's Knob Treasury`
+    : $location`The Haunted Kitchen`;
+}
+
+/**
+ * Get the item a Lil' Doctor™ bag patient in this location needs, so the patient is cured.
+ * @param location The location we're about to adventure in
+ */
+function prepareDoctorBagPatient(location: Location): void {
+  if (get("doctorBagQuestLocation") !== location) return;
+  const item = get("doctorBagQuestItem");
+  if (item) retrieveItem(item);
+}
+
+/**
+ * Banish another monster with the action that banished the crate, which frees the crate.
+ * @param run The action that banished the crate
  */
 function unbanishCrate(run: ActionSource): void {
+  const location = unbanishLocation();
   useFamiliar(
     run.constraints.familiar?.() ??
-      freeFightFamiliar($location`The Haunted Kitchen`, {
-        canChooseMacro: false,
-      }),
+      freeFightFamiliar(location, { canChooseMacro: false }),
   );
   run.constraints.preparation?.();
   new Requirement([], {
@@ -264,11 +285,12 @@ function unbanishCrate(run: ActionSource): void {
   })
     .merge(run.constraints.equipmentRequirements?.() ?? new Requirement([], {}))
     .maximize();
-  // A noncombat banishes nothing, so try again.
+  // Noncombats, such as a doctor bag patient, banish nothing, so try again.
   let attempts = 0;
   do {
     if (attempts > 0) run.constraints.preparation?.();
-    garboAdventure($location`The Haunted Kitchen`, run.macro);
+    prepareDoctorBagPatient(location);
+    garboAdventure(location, run.macro);
     attempts++;
   } while (
     lastAdventureWasWeird({
@@ -277,6 +299,16 @@ function unbanishCrate(run: ActionSource): void {
     }) ||
     (isBanished(crate) && attempts < MAX_UNBANISH_ATTEMPTS)
   );
+
+  if (isBanished(crate)) {
+    const banisher =
+      [...getBanishedMonsters()].find(
+        ([, monster]) => monster === crate,
+      )?.[0] ?? "an unknown banisher";
+    throw new Error(
+      `The crate is still banished by ${banisher}. Garbo tried ${attempts} times to banish something else in ${location} with it, and the last encounter was "${get("lastEncounter")}". Use ${banisher} on any monster outside Noob Cave to free the crate, then rerun garbo.`,
+    );
+  }
 }
 
 /**
