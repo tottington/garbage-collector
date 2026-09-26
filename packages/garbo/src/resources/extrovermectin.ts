@@ -60,7 +60,7 @@ import { globalOptions } from "../config";
 import { AdventureArgument } from "../garboWanderer";
 
 const crate = $monster`crate`;
-const MAX_UNBANISH_ATTEMPTS = 5;
+const MAX_UNBANISH_ATTEMPTS = 2;
 
 type GregSource = {
   copies: number;
