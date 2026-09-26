@@ -28,6 +28,7 @@ import {
   $monster,
   $skill,
   $slot,
+  ActionSource,
   clamp,
   CrystalBall,
   get,
@@ -57,6 +58,7 @@ import { globalOptions } from "../config";
 import { AdventureArgument } from "../garboWanderer";
 
 const crate = $monster`crate`;
+const MAX_UNBANISH_ATTEMPTS = 5;
 
 type GregSource = {
   copies: number;
@@ -247,9 +249,60 @@ export function equipOrbIfDesired(): void {
 }
 
 /**
+ * Banish a Haunted Kitchen monster with the action that banished the crate, which frees the crate.
+ */
+function unbanishCrate(run: ActionSource): void {
+  useFamiliar(
+    run.constraints.familiar?.() ??
+      freeFightFamiliar($location`The Haunted Kitchen`, {
+        canChooseMacro: false,
+      }),
+  );
+  run.constraints.preparation?.();
+  new Requirement([], {
+    preventEquip: $items`Kramco Sausage-o-Matic™`,
+  })
+    .merge(run.constraints.equipmentRequirements?.() ?? new Requirement([], {}))
+    .maximize();
+  // A noncombat banishes nothing, so try again.
+  let attempts = 0;
+  do {
+    if (attempts > 0) run.constraints.preparation?.();
+    garboAdventure($location`The Haunted Kitchen`, run.macro);
+    attempts++;
+  } while (
+    lastAdventureWasWeird({
+      extraEncounters: ["Lights Out in the Kitchen"],
+      includeHolidayWanderers: false,
+    }) ||
+    (isBanished(crate) && attempts < MAX_UNBANISH_ATTEMPTS)
+  );
+}
+
+/**
+ * @returns The combat item holding the crate's banish, if any
+ */
+function crateBanishItem(): Item | null {
+  for (const [banisher, monster] of getBanishedMonsters()) {
+    if (monster === crate && banisher instanceof Item && banisher.combat) {
+      return banisher;
+    }
+  }
+  return null;
+}
+
+/**
  * Pre-olfact/saber crates, for extrovermectin/gregarious reasons.
  */
 function initializeCrates(): void {
+  const banishItem = crateBanishItem();
+  if (banishItem) {
+    unbanishCrate(
+      new ActionSource(banishItem, () => 0, Macro.item(banishItem), {
+        preparation: () => retrieveItem(banishItem),
+      }),
+    );
+  }
   do {
     // We use the force while olfacting sometimes, so we'll need to refresh mafia's knowledge of olfaction
     if (property.getString("olfactedMonster") !== "crate") {
@@ -313,31 +366,7 @@ function initializeCrates(): void {
       );
       visitUrl(`desc_effect.php?whicheffect=${$effect`On the Trail`.descid}`);
 
-      if (run === possibleBanish && !have($skill`CLEESH`)) {
-        useFamiliar(
-          run.constraints.familiar?.() ??
-            freeFightFamiliar($location`The Haunted Kitchen`, {
-              canChooseMacro: false,
-            }),
-        );
-        run.constraints.preparation?.();
-        new Requirement([], {
-          preventEquip: $items`Kramco Sausage-o-Matic™`,
-        })
-          .merge(
-            run.constraints.equipmentRequirements?.() ??
-              new Requirement([], {}),
-          )
-          .maximize();
-        do {
-          garboAdventure($location`The Haunted Kitchen`, run.macro);
-        } while (
-          lastAdventureWasWeird({
-            extraEncounters: ["Lights Out in the Kitchen"],
-            includeHolidayWanderers: false,
-          })
-        );
-      }
+      if (run === possibleBanish && !have($skill`CLEESH`)) unbanishCrate(run);
     } else if (
       crateStrategy() === "Saber" &&
       (get("_saberForceMonster") !== crate ||
