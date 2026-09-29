@@ -2,6 +2,7 @@ import { ChoiceAdventureScript, runChoice } from "kolmafia";
 import {
   getBestDartsOption,
   getBestMobiusOption,
+  getDoctorBagQuestOption,
   runPeridotChoice,
 } from "./resources";
 import { get, NumericOrStringProperty } from "libram";
@@ -26,6 +27,8 @@ export const main: ChoiceAdventureScript = (choiceNumber, pageText) => {
     case 914: // Louvre it or Leave it
     case 1499: // Labyrinth of shadows
       return; // Doesn't follow traditional choice adventure structure
+    case 1340:
+      return void runChoice(getDoctorBagQuestOption());
     case 1525:
       return void runChoice(getBestDartsOption());
     case 1557:
