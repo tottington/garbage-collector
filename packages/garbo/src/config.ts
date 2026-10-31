@@ -53,7 +53,7 @@ const farmingStrategyAliases: Record<
   },
   [FarmingMethod.COBBS_KNOB_TREASURY]: {
     location: $location`Cobb's Knob Treasury`,
-    aliases: ["treasury", "flood", "floodedtreasury", "treasurycows"],
+    aliases: ["idmgo", "treasury", "treasurymaxx"],
   },
 };
 
