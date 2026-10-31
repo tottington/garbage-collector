@@ -1,6 +1,7 @@
 import { Quest } from "grimoire-kolmafia";
 import {
   canAdventure,
+  canEquip,
   Effect,
   Element,
   haveEffect,
@@ -27,6 +28,7 @@ import {
   $skill,
   clamp,
   get,
+  getModifier,
   have,
   sum,
   undelay,
@@ -46,6 +48,7 @@ import {
   sober,
 } from "../lib";
 import { freeFightOutfit } from "../outfit/free";
+import { waterBreathingEquipment } from "../outfit/lib";
 import { luckySourceTasks } from "../resources/lucky";
 import { GarboTask } from "./engine";
 
@@ -90,6 +93,14 @@ function expectedResistance(element: Element): number {
   return resistance;
 }
 
+// The pearl outfit adds +sea, which needs a breathing effect or breathing gear to choose from
+function canBreatheUnderwater(): boolean {
+  return (
+    getModifier("Adventure Underwater") ||
+    waterBreathingEquipment.some((item) => have(item) && canEquip(item))
+  );
+}
+
 const pipeAvailable = () => have($item`fishy pipe`) && !get("_fishyPipeUsed");
 const lutzAvailable = () =>
   get("skateParkStatus") === "ice" && !get("_skateBuff1");
@@ -108,6 +119,7 @@ type LuckySource = { name: string; cost: number; acquire: () => boolean };
  * Ways to get Lucky! for The Haggling, cheapest first. A Lucky! source garbo would otherwise use costs garbo's best Lucky! adventure; a clover costs its value.
  */
 function luckySources(): LuckySource[] {
+  if (!canAdventure(HAGGLING)) return [];
   const garboLuckyValue = Math.max(0, getBestLuckyAdventure().value());
   const daily = luckySourceTasks
     .filter((task) => !task.completed())
@@ -331,6 +343,6 @@ function pearlTask(target: PearlTarget): GarboTask {
  */
 export const PearlsQuest: Quest<GarboTask> = {
   name: "Pearls",
-  ready: () => !globalOptions.nobarf,
+  ready: () => !globalOptions.nobarf && canBreatheUnderwater(),
   tasks: [luckyFishyTask, ...PearlTargets.map(pearlTask)],
 };
