@@ -20008,7 +20008,8 @@ var THE_CORAL_CORRAL = {
 // Sea cows in a Treasury flooded by Summon a Wave, brought in by an acorndion acorn
 var COBBS_KNOB_TREASURY = _objectSpread2(_objectSpread2({}, THE_CORAL_CORRAL), {}, {
   location: $location`Cobb's Knob Treasury`,
-  asdonEffect: $effect`Driving Observantly`,
+  // +10% combat closes the Treasury's noncombats, which cost more than Observantly's +50% meat
+  asdonEffect: $effect`Driving Obnoxiously`,
   floods: true,
   get banishMonsters() {
     var acorns = treasuryAcorns();
