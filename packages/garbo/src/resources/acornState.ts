@@ -5,11 +5,9 @@ export const TREASURY = $location`Cobb's Knob Treasury`;
 export const TREASURY_GOBLINS = $monsters`Knob Goblin Accountant, Knob Goblin Bean Counter, Knob Goblin MBA`;
 export const MAX_PLANTING_FIGHTS = 6;
 const STATE_PREF = "garboTreasuryAcorns";
-const PLAN_PREF = "garbo_treasuryAcornPlan";
-// A zone takes one acorn of each kind
-const DEFAULT_PLAN = "seacow,zydeco,banish";
-
-export type AcornPlan = { banishes: number; zydecos: number };
+// A zone takes one acorn of each kind: sea cows, a Zydeco and a banish
+export const ZYDECO_ACORNS = 1;
+export const BANISH_ACORNS = 1;
 
 export type AcornState = {
   ascension: number;
@@ -18,21 +16,6 @@ export type AcornState = {
   zydecos: number;
   banished: Monster[];
 };
-
-/**
- * The acorns to plant besides the sea cow acorn, from garbo_treasuryAcornPlan: a comma-separated list of seacow, zydeco and banish, three at most.
- */
-export function treasuryAcornPlan(): AcornPlan {
-  const acorns = get(PLAN_PREF, DEFAULT_PLAN)
-    .split(",")
-    .map((acorn) => acorn.trim().toLowerCase())
-    .filter((acorn) => acorn !== "seacow")
-    .slice(0, 2);
-  return {
-    banishes: acorns.filter((acorn) => acorn === "banish").length,
-    zydecos: acorns.filter((acorn) => acorn === "zydeco").length,
-  };
-}
 
 /**
  * @returns Whether the Treasury is flooded by Summon a Wave
@@ -83,7 +66,7 @@ export function saveTreasuryAcorns(state: AcornState): void {
  * @returns The goblins still to be banished by an acorn
  */
 export function goblinsToAcornBanish(state: AcornState): Monster[] {
-  return state.banished.length < treasuryAcornPlan().banishes
+  return state.banished.length < BANISH_ACORNS
     ? TREASURY_GOBLINS.filter((m) => !state.banished.includes(m))
     : [];
 }
@@ -95,7 +78,7 @@ export function treasuryPlantingDone(): boolean {
   const state = treasuryAcorns();
   return (
     (state.seaCows &&
-      state.zydecos >= treasuryAcornPlan().zydecos &&
+      state.zydecos >= ZYDECO_ACORNS &&
       goblinsToAcornBanish(state).length === 0) ||
     state.fights >= MAX_PLANTING_FIGHTS
   );

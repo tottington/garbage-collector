@@ -17,11 +17,6 @@
     "description": "Should skip verifying that your account has broken the prism? Set to true if you want to proceed regardless, and false if you'd like to be warned."
   },
   {
-    "name": "garbo_treasuryAcornPlan",
-    "defaultValue": "seacow,zydeco,banish",
-    "description": "With farmingMethod=treasury, which legendary acorndion acorns should garbo plant in the flooded Treasury? A comma-separated list of seacow, zydeco and banish. A zone takes one acorn of each kind, three at most."
-  },
-  {
     "name": "garbo_valueOfFreeFight",
     "defaultValue": 2000,
     "description": "What is a free fight\run worth to you? (Default 2000)."

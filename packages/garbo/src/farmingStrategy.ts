@@ -40,9 +40,9 @@ import { FarmingContext } from "./tasks/context";
 import { garboValue } from "./garboValue";
 import { expectedDropValue, songboomMeat } from "./lib";
 import {
+  BANISH_ACORNS,
   MAX_PLANTING_FIGHTS,
   TREASURY_GOBLINS,
-  treasuryAcornPlan,
   treasuryAcorns,
 } from "./resources/acornState";
 
@@ -317,7 +317,7 @@ const COBBS_KNOB_TREASURY: FarmingStrategyOptions = {
   floods: true,
   get banishMonsters(): Monster[] {
     const acorns = treasuryAcorns();
-    return acorns.banished.length >= treasuryAcornPlan().banishes ||
+    return acorns.banished.length >= BANISH_ACORNS ||
       acorns.fights >= MAX_PLANTING_FIGHTS
       ? TREASURY_GOBLINS.filter((m) => !acorns.banished.includes(m))
       : [];

@@ -21,9 +21,9 @@ import {
   goblinsToAcornBanish,
   saveTreasuryAcorns,
   TREASURY,
-  treasuryAcornPlan,
   treasuryAcorns,
   treasuryFlooded,
+  ZYDECO_ACORNS,
 } from "./acornState";
 
 // mafia registers the legendary acorndion at runtime but knows none of its skills, so they are cast by id.
@@ -73,7 +73,7 @@ const ACORN_SKILLS: Record<Acorn, number> = {
 // The sea cow acorn comes first, then the planned Zydecos
 function nextOtherAcorn(state: AcornState): Acorn | null {
   if (!state.seaCows) return "seacow";
-  if (state.zydecos < treasuryAcornPlan().zydecos) return "zydeco";
+  if (state.zydecos < ZYDECO_ACORNS) return "zydeco";
   return null;
 }
 
