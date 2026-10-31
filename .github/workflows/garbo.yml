@@ -26,7 +26,9 @@ jobs:
           cache: yarn
       - run: yarn install --immutable --immutable-cache
       - run: yarn workspace garbo-lib build
+      - run: yarn workspace garbo-pearls build
       - run: yarn check
+      - run: yarn workspace garbo-pearls test
       #- run: yarn run test TODO: Readd once we have tests
 
   lint-all:
@@ -41,6 +43,7 @@ jobs:
           cache: yarn
       - run: yarn install --immutable --immutable-cache
       - run: yarn workspace garbo-lib build
+      - run: yarn workspace garbo-pearls build
       - run: yarn run lint
 
   deploy:
