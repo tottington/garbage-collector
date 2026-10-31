@@ -146,6 +146,13 @@ export function main(argString = ""): void {
 
   cliExecute("mallcheck.js");
 
+  if (globalOptions.pearlreport) {
+    pearlReport();
+    return;
+  }
+  // Validates the pearl selection before anything is spent.
+  selectedPearls();
+
   if (globalOptions.target === $monster.none) {
     globalOptions.target = defaultTarget();
   }
@@ -615,6 +622,7 @@ export function main(argString = ""): void {
 import { CockroachFinish, CockroachSetup } from "./tasks/cockroach/prep";
 import { EmbezzlerFightsQuest } from "./tasks/embezzler";
 import { FarmQuests } from "./tasks/farm";
+import { pearlReport, selectedPearls } from "./tasks/farm/pearls";
 import { FinishUpQuest } from "./tasks/finishUp";
 import { PostQuest } from "./tasks/post";
 import { SetupTargetCopyQuest } from "./tasks/target";

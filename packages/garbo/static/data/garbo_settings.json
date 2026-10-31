@@ -70,5 +70,68 @@
     "name": "garbo_bczStatFloor",
     "defaultValue": 0,
     "description": "When greater than zero, Garbo will not allow Blood Cubic Zirconia usage to push your stats below this number. (IE, if you pick 200, Garbo will never use enough BCZ casts to get your base Moxie stat below 200.)"
+  },
+  {
+    "name": "garbo_pearls",
+    "description": "Which unblemished pearls should garbo farm before barf turns? A comma-separated, ordered list of spooky, sleaze, hot, stench, cold, or all. Leave empty to farm none. Each zone is farmed only when its expected profit beats the turns it costs at valueOfAdventure. Run \"garbo pearlreport\" to see the estimate without spending anything."
+  },
+  {
+    "name": "garbo_pearlRequireCap",
+    "type": "boolean",
+    "description": "Should pearl farming halt instead of farming a zone whose elemental resistance is below the 18-resistance progress cap?"
+  },
+  {
+    "name": "garbo_pearlForce",
+    "type": "boolean",
+    "description": "Should garbo farm the selected pearl zones even when the profit model expects them to lose meat?"
+  },
+  {
+    "name": "garbo_pearlAirMode",
+    "defaultValue": "effects",
+    "description": "How should pearl farming get underwater breathing when no air effect is active? effects: spend the 1/day air consumables first and equip gear only as a fallback. gear: never spend consumables. auto: spend consumables only when the freed gear slot buys a resistance progress tier."
+  },
+  {
+    "name": "garbo_pearlPotionPrice",
+    "defaultValue": 0,
+    "description": "Most meat to pay per resistance potion while pearl farming. 0 never buys; owned potions are still used when the turns they save pay for them."
+  },
+  {
+    "name": "garbo_pearlLuckyFishy",
+    "type": "boolean",
+    "description": "Should pearl farming refresh Fishy with Lucky! and The Haggling? This spends the same Lucky! sources (saxophone, Heartstone, August scepter, clovers, pill keeper) garbo uses for its own lucky adventures, and the profit model prices the free ones at 0."
+  },
+  {
+    "name": "garbo_pearlCloverPrice",
+    "defaultValue": 0,
+    "description": "Most meat to pay per mall 11-leaf clover for the pearl Fishy refresh. 0 never buys."
+  },
+  {
+    "name": "garbo_pearlMomBuff",
+    "description": "Spend Mom Sea Monkee's free daily food on a pearl zone that cannot reach the resistance cap? true picks the first such zone; an element (spooky, sleaze, hot, stench, cold) reserves it for that zone. Leave empty to never visit Mom."
+  },
+  {
+    "name": "garbo_pearlCodpiece",
+    "type": "boolean",
+    "description": "Should garbo socket unblemished pearls into The Eternity Codpiece after pearl farming? Other gems are evicted back to inventory. Wear the codpiece at rollover for the bonus adventures."
+  },
+  {
+    "name": "garbo_pearlDrunkWeapon",
+    "defaultValue": "June cleaver",
+    "description": "Which weapon should pearl farming wield while overdrunk with Drunkula's wineglass?"
+  },
+  {
+    "name": "garbo_pearlLeeroyJenkins",
+    "type": "boolean",
+    "description": "Overdrunk pearl farming only: should garbo fight on when the weapon cannot guarantee a one-shot of the zone's toughest monster, instead of skipping the zone?"
+  },
+  {
+    "name": "garbo_pearlOvercapped",
+    "type": "boolean",
+    "description": "Should pearl farming wear every owned organ extender, not only the ones needed to adventure?"
+  },
+  {
+    "name": "garbo_pearlFishMaxxing",
+    "type": "boolean",
+    "description": "Should pearl farming turn every pearl-zone monster into some fish with the Monodent of the Sea, banking Fishy from the Book of Facts? Needs a class and path whose fact for some fish is Fishy."
   }
 ]

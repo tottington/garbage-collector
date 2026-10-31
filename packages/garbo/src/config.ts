@@ -157,6 +157,16 @@ You can use multiple options in conjunction, e.g. "garbo nobarf ascend"',
       help: "print out what it computes as an optimal diet and then exit.",
       default: false,
     }),
+    pearls: Args.string({
+      setting: "garbo_pearls",
+      help: 'Farm unblemished pearls before barf turns: a comma-separated, ordered list of spooky,sleaze,hot,stench,cold, or "all". Empty (default) farms none. Each zone is farmed only when its expected profit beats the turns it costs at valueOfAdventure.',
+      default: "",
+    }),
+    pearlreport: Args.flag({
+      setting: "",
+      help: "print the unblemished pearl requirements and profit report for the selected pearls (all five when none are selected) and then exit, spending nothing.",
+      default: false,
+    }),
     turns: Args.number({
       setting: "",
       help: 'terminate after the specified number of turns, e.g. "garbo 200" or "garbo turns=200" will terminate after 200 turns are spent. Negative inputs will cause garbo to terminate when the specified number of turns remain.',
@@ -299,6 +309,77 @@ You can use multiple options in conjunction, e.g. "garbo nobarf ascend"',
           setting: "garbo_rolloverBuffer",
           help: "At how many minutes before Rollover should we terminate to let you get ready for bed?",
           default: 5,
+        }),
+        pearlRequireCap: Args.boolean({
+          setting: "garbo_pearlRequireCap",
+          help: "Halt instead of farming a pearl zone whose elemental resistance is below the 18-resistance progress cap.",
+          default: false,
+        }),
+        pearlForce: Args.boolean({
+          setting: "garbo_pearlForce",
+          help: "Farm selected pearl zones even when the profit model expects them to lose meat.",
+          default: false,
+        }),
+        pearlAirMode: Args.string({
+          setting: "garbo_pearlAirMode",
+          help: "How pearl farming gets underwater breathing when no air effect is active.",
+          options: [
+            [
+              "effects",
+              "spend the 1/day air consumables first, equip gear only as a fallback",
+            ],
+            ["gear", "never spend consumables; always equip breathing gear"],
+            [
+              "auto",
+              "spend consumables only when the freed gear slot buys a resistance progress tier",
+            ],
+          ],
+          default: "effects",
+        }),
+        pearlPotionPrice: Args.number({
+          setting: "garbo_pearlPotionPrice",
+          help: "Max meat to pay per resistance potion while pearl farming. 0 never buys; owned potions are still spent when the turns they save pay for them.",
+          default: 0,
+        }),
+        pearlLuckyFishy: Args.boolean({
+          setting: "garbo_pearlLuckyFishy",
+          help: "Refresh Fishy with Lucky! and The Haggling while pearl farming. Spends the same Lucky! sources garbo uses for its own lucky adventures.",
+          default: false,
+        }),
+        pearlCloverPrice: Args.number({
+          setting: "garbo_pearlCloverPrice",
+          help: "Max meat to pay per mall 11-leaf clover for the pearl Fishy refresh. 0 never buys.",
+          default: 0,
+        }),
+        pearlMomBuff: Args.string({
+          setting: "garbo_pearlMomBuff",
+          help: "Spend Mom Sea Monkee's free daily food on a pearl zone that cannot reach the resistance cap: true picks the first such zone, an element (spooky,sleaze,hot,stench,cold) reserves it. Empty never visits Mom.",
+          default: "",
+        }),
+        pearlCodpiece: Args.boolean({
+          setting: "garbo_pearlCodpiece",
+          help: "Socket unblemished pearls into The Eternity Codpiece after pearl farming, evicting other gems.",
+          default: false,
+        }),
+        pearlDrunkWeapon: Args.item({
+          setting: "garbo_pearlDrunkWeapon",
+          help: "Weapon to wield while farming pearls overdrunk with Drunkula's wineglass.",
+          default: $item`June cleaver`,
+        }),
+        pearlLeeroyJenkins: Args.boolean({
+          setting: "garbo_pearlLeeroyJenkins",
+          help: "Overdrunk pearl farming only: fight on when the weapon cannot guarantee a one-shot of the zone's toughest monster, instead of skipping or halting.",
+          default: false,
+        }),
+        pearlOvercapped: Args.boolean({
+          setting: "garbo_pearlOvercapped",
+          help: "Wear every owned organ extender while pearl farming.",
+          default: false,
+        }),
+        pearlFishMaxxing: Args.boolean({
+          setting: "garbo_pearlFishMaxxing",
+          help: "Turn every pearl-zone monster into some fish with the Monodent of the Sea, banking Fishy from the Book of Facts.",
+          default: false,
         }),
         farmingMethod: Args.custom<FarmingMethod>(
           {
