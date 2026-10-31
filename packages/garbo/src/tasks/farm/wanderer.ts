@@ -770,7 +770,7 @@ const BarfTurnTasks: GarboTask[] = [
         !canAdventureOrUnlock(
           questLocation,
           false,
-          FarmingStrategy.isUnderwater(),
+          FarmingStrategy.needsDivingGear(),
         )
       ) {
         return false;

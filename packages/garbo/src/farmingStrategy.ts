@@ -39,6 +39,12 @@ import { completeBarfQuest } from "./resources/realm";
 import { FarmingContext } from "./tasks/context";
 import { garboValue } from "./garboValue";
 import { expectedDropValue, songboomMeat } from "./lib";
+import {
+  MAX_PLANTING_FIGHTS,
+  TREASURY_GOBLINS,
+  treasuryAcornPlan,
+  treasuryAcorns,
+} from "./resources/acornState";
 
 export function averageRedTaffyValue(): number {
   return sum(
@@ -79,6 +85,7 @@ interface FarmingStrategyOptions {
   bonusEffects?: Effect[];
   bonusModifiers?: NumericModifier[];
   banishMonsters?: Monster[];
+  floods?: boolean;
   post?: () => void;
 }
 
@@ -90,6 +97,7 @@ const DEFAULT_OPTIONS: Readonly<{
   bonusEffects: [] as Effect[],
   bonusModifiers: [] as NumericModifier[],
   banishMonsters: [] as Monster[],
+  floods: false,
   ncTurns: Infinity,
   post: () => {},
   available: true,
@@ -101,7 +109,13 @@ const DEFAULT_OPTIONS: Readonly<{
 interface FarmingStrategySkeleton extends Required<FarmingStrategyOptions> {}
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 class FarmingStrategySkeleton {
+  // Underwater item and effect bonuses apply, including in a zone flooded by Summon a Wave
   isUnderwater(): boolean {
+    return this.location.environment === "underwater" || this.floods;
+  }
+
+  // Water breathing and pressure apply only to zones that are natively underwater
+  needsDivingGear(): boolean {
     return this.location.environment === "underwater";
   }
 
@@ -155,9 +169,8 @@ class FarmingStrategySkeleton {
       "Smithsness",
       "Item Drop",
       ...this.bonusModifiers,
-      ...(this.isUnderwater()
-        ? (["Hidden Familiar Weight", "Meat Drop Penalty"] as const)
-        : []),
+      ...(this.isUnderwater() ? (["Hidden Familiar Weight"] as const) : []),
+      ...(this.needsDivingGear() ? (["Meat Drop Penalty"] as const) : []),
     ];
   }
 
@@ -293,6 +306,24 @@ const THE_MARINARA_TRENCH: FarmingStrategyOptions = {
       .meatKill(),
 };
 
+// Sea cows in a Treasury flooded by Summon a Wave, brought in by an acorndion acorn
+const COBBS_KNOB_TREASURY: FarmingStrategyOptions = {
+  ...THE_CORAL_CORRAL,
+  location: $location`Cobb's Knob Treasury`,
+  // +10% combat closes the Treasury's noncombats, which cost more than Observantly's +50% meat
+  asdonEffect: $effect`Driving Obnoxiously`,
+  // Sea cows keep Fishy up, and the Treasury needs no seahorse
+  available: effectFact($monster`sea cow`) === $effect`Fishy`,
+  floods: true,
+  get banishMonsters(): Monster[] {
+    const acorns = treasuryAcorns();
+    return acorns.banished.length >= treasuryAcornPlan().banishes ||
+      acorns.fights >= MAX_PLANTING_FIGHTS
+      ? TREASURY_GOBLINS.filter((m) => !acorns.banished.includes(m))
+      : [];
+  },
+};
+
 function currentStrategy(): FarmingStrategyOptions {
   switch (globalOptions.prefs.farmingMethod) {
     case FarmingMethod.THE_CORAL_CORRAL:
@@ -300,6 +331,9 @@ function currentStrategy(): FarmingStrategyOptions {
 
     case FarmingMethod.THE_MARINARA_TRENCH:
       return THE_MARINARA_TRENCH;
+
+    case FarmingMethod.COBBS_KNOB_TREASURY:
+      return COBBS_KNOB_TREASURY;
 
     case FarmingMethod.BARF_MOUNTAIN:
     default:

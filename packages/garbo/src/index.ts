@@ -54,7 +54,7 @@ import {
 import { withVIPClan } from "./clan";
 import { stash } from "./stash";
 import { prepareForCleanup } from "./cleanup";
-import { globalOptions, isQuickGear } from "./config";
+import { FarmingMethod, globalOptions, isQuickGear } from "./config";
 import { dailySetup } from "./dailies";
 import { nonOrganAdventures, runDiet } from "./diet";
 import { dailyFights, freeFights } from "./fights";
@@ -86,6 +86,7 @@ import {
 import { shouldAffirmationHate } from "./combat";
 import { acquire } from "./acquire";
 import { FarmingStrategy } from "./farmingStrategy";
+import { canFarmTreasury, leaveTreasury } from "./resources/acorndion";
 import { runGarboFarmQuests, runGarboQuests } from "./tasks/engine";
 
 // Max price for tickets. You should rethink whether Barf is the best place if they're this expensive.
@@ -119,6 +120,13 @@ export function main(argString = ""): void {
   if (globalOptions.help) {
     Args.showHelp(globalOptions);
     return;
+  }
+
+  if (
+    globalOptions.prefs.farmingMethod === FarmingMethod.COBBS_KNOB_TREASURY &&
+    !canFarmTreasury()
+  ) {
+    leaveTreasury("The Treasury can't be flooded today.");
   }
 
   if (!FarmingStrategy.available) {
@@ -588,7 +596,12 @@ export function main(argString = ""): void {
         runGarboQuests([BuffExtensionQuest, PostBuffExtensionQuest]);
         if (!targetingMeat()) runGarboQuests([EmbezzlerFightsQuest]);
         try {
+          const farmLocation = FarmingStrategy.location;
           runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
+          // Farming moves off the Treasury when it can't be flooded or the sea cow acorn fails
+          if (FarmingStrategy.location !== farmLocation) {
+            runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
+          }
           runGarboQuests([FinishUpQuest]);
         } finally {
           setAutoAttack(0);

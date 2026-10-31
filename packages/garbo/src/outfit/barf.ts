@@ -132,7 +132,7 @@ export function computeBarfOutfit(
 
   const bjornChoice = chooseBjorn(BonusEquipMode.BARF, spec.familiar, sim);
 
-  if (FarmingStrategy.isUnderwater()) {
+  if (FarmingStrategy.needsDivingGear()) {
     outfit.modifier.push(`+sea`);
   }
   outfit.modifier.push(
