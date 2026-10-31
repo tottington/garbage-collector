@@ -19766,7 +19766,8 @@ var TREASURY_GOBLINS = $monsters`Knob Goblin Accountant, Knob Goblin Bean Counte
 var MAX_PLANTING_FIGHTS = 6;
 var STATE_PREF = "garboTreasuryAcorns";
 var PLAN_PREF = "garbo_treasuryAcornPlan";
-var DEFAULT_PLAN = "seacow,zydeco,zydeco";
+// A zone takes one acorn of each kind
+var DEFAULT_PLAN = "seacow,zydeco,banish";
 /**
  * The acorns to plant besides the sea cow acorn, from garbo_treasuryAcornPlan: a comma-separated list of seacow, zydeco and banish, three at most.
  */
