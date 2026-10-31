@@ -21,6 +21,7 @@ import {
   itemAmount,
   itemDropsArray,
   Location,
+  mallPrice,
   meatDrop,
   meatDropModifier,
   Monster,
@@ -31,6 +32,7 @@ import {
   myFullness,
   myHp,
   myInebriety,
+  myLevel,
   myLocation,
   myMaxhp,
   myMaxmp,
@@ -1027,6 +1029,36 @@ export function improvesAStat(thing: Item | Effect): boolean {
 
 export function willDrunkAdventure() {
   return have($item`Drunkula's wineglass`) && globalOptions.ascend;
+}
+
+/**
+ * @returns Meat per MP, restoring with the cheaper of magical mystery juice and generic mana potions
+ */
+export function meatPerMp(): number {
+  const mmj =
+    (100 -
+      (have($skill`Five Finger Discount`) ? 5 : 0) -
+      (have($item`Travoltan trousers`) ? 5 : 0)) /
+    (1.5 * myLevel() + 5);
+  const genericManaPotion =
+    mallPrice($item`generic mana potion`) / (2.5 * myLevel());
+  return Math.min(mmj, genericManaPotion);
+}
+
+/**
+ * Get Fishy from a free source: the fishy pipe, then a lutz at the icy Skate Park.
+ * @returns Whether Fishy is active
+ */
+export function getFreeFishy(): boolean {
+  if (have($effect`Fishy`)) return true;
+  if (have($item`fishy pipe`) && !get("_fishyPipeUsed")) {
+    use($item`fishy pipe`);
+    if (have($effect`Fishy`)) return true;
+  }
+  if (get("skateParkStatus") === "ice" && !get("_skateBuff1")) {
+    cliExecute("skate lutz");
+  }
+  return have($effect`Fishy`);
 }
 
 export function freeFishyAvailable(): boolean {

@@ -16,14 +16,14 @@ import {
   NumericProperty,
 } from "libram";
 
-type PearlTarget = {
+export type PearlTarget = {
   location: Location;
   completionPref: BooleanProperty;
   progressPref: NumericProperty;
   estimatedProgress: number;
   maximizeElement: Element;
 };
-const PearlTargets: PearlTarget[] = [
+export const PearlTargets: PearlTarget[] = [
   // estimating progress at some lower rates, 3.3 is with just passives.
   // TODO value resistances when targeting these, maybe make a pref or something that records our expected amount?
   {

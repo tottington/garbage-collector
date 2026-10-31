@@ -2,7 +2,6 @@ import {
   adv1,
   canAdventure,
   canEquip,
-  cliExecute,
   getWorkshed,
   Location,
   mallPrice,
@@ -53,6 +52,7 @@ import { GarboStrategy } from "../../combatStrategy";
 import { globalOptions } from "../../config";
 import { wanderer } from "../../garboWanderer";
 import {
+  getFreeFishy,
   kramcoGuaranteed,
   MEAT_TARGET_MULTIPLIER,
   romanticMonsterImpossible,
@@ -185,17 +185,7 @@ function shouldGoUnderwater(): boolean {
 
   if (have($effect`Fishy`)) return true;
   if (willYachtzee()) return false;
-  if (have($item`fishy pipe`) && !get("_fishyPipeUsed")) {
-    use($item`fishy pipe`);
-    if (have($effect`Fishy`)) return true;
-  }
-
-  if (get("skateParkStatus") === "ice" && !get("_skateBuff1")) {
-    cliExecute("skate lutz");
-    if (have($effect`Fishy`)) return true;
-  }
-
-  return false;
+  return getFreeFishy();
 }
 
 /**

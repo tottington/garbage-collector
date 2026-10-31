@@ -27,7 +27,7 @@ import {
   Mood,
   uneffect,
 } from "libram";
-import { setChoice } from "./lib";
+import { meatPerMp, setChoice } from "./lib";
 import { safeRestoreMpTarget } from "./restore";
 import { usingPurse } from "./outfit/lib";
 import { effectValue } from "./potions";
@@ -130,14 +130,7 @@ export function meatMood({
   mood.skill($skill`Call For Backup`);
   mood.skill($skill`Soothing Flute`);
 
-  const mmjCost =
-    (100 -
-      (have($skill`Five Finger Discount`) ? 5 : 0) -
-      (have($item`Travoltan trousers`) ? 5 : 0)) *
-    (200 / (1.5 * myLevel() + 5));
-  const genericManaPotionCost =
-    mallPrice($item`generic mana potion`) * (200 / (2.5 * myLevel()));
-  const mpRestorerCost = Math.min(mmjCost, genericManaPotionCost);
+  const mpRestorerCost = 200 * meatPerMp();
 
   if (myClass() !== $class`Pastamancer` && 0.1 * meat * 10 > mpRestorerCost) {
     mood.skill($skill`Bind Lasagmbie`);

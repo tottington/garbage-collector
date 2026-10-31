@@ -565,6 +565,9 @@ export function main(argString = ""): void {
         preventSlot: $slots`buddy-bjorn, crown-of-thrones`,
       });
 
+      // Pearls come before meat buffs and potions, so pearl turns don't burn them
+      runGarboQuests([PearlsQuest]);
+
       // 2. do some target copy stuff
       freeFights();
       runGarboQuests([CockroachFinish]); // Fight the giant giant crab after we've dieted for some extra buffs
@@ -616,5 +619,6 @@ import { CockroachFinish, CockroachSetup } from "./tasks/cockroach/prep";
 import { EmbezzlerFightsQuest } from "./tasks/embezzler";
 import { FarmQuests } from "./tasks/farm";
 import { FinishUpQuest } from "./tasks/finishUp";
+import { PearlsQuest } from "./tasks/pearls";
 import { PostQuest } from "./tasks/post";
 import { SetupTargetCopyQuest } from "./tasks/target";
