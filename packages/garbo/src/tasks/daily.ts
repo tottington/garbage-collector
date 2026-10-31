@@ -53,7 +53,6 @@ import {
   findLeprechaunMultiplier,
   get,
   getModifier,
-  getTodaysHolidayWanderers,
   have,
   maxBy,
   Pantogram,
@@ -71,7 +70,12 @@ import { globalOptions } from "../config";
 import { copyTargetCount } from "../target/fights";
 import { meatFamiliar } from "../familiar/meatFamiliar";
 import { estimatedAttunementTentacles } from "../fights";
-import { HIGHLIGHT, songboomMeat, targetMeat } from "../lib";
+import {
+  allHolidayWanderers,
+  HIGHLIGHT,
+  songboomMeat,
+  targetMeat,
+} from "../lib";
 import { garboValue } from "../garboValue";
 import {
   estimatedGarboTurns,
@@ -775,7 +779,7 @@ const DailyTasks: GarboTask[] = [
         [
           $monster`giant rubber spider`,
           $monster`time-spinner prank`,
-          ...getTodaysHolidayWanderers(),
+          ...allHolidayWanderers(),
         ],
         Macro.basicCombat(),
       ).abortWithMsg(

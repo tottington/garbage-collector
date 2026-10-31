@@ -48,6 +48,7 @@ import {
   spleenLimit,
   Stat,
   todayToString,
+  toMonster,
   totalFreeRests,
   toUrl,
   use,
@@ -79,9 +80,9 @@ import {
   getBanishedMonsters,
   getKramcoWandererChance,
   getModifier,
-  getTodaysHolidayWanderers,
   have,
   JuneCleaver,
+  holidayWanderers as libramHolidayWanderers,
   maxBy,
   PropertiesManager,
   property,
@@ -553,15 +554,38 @@ export function lastAdventureWasWeird(
     includeVioletFog = true,
   } = {} as Partial<LastAdventureOptions>,
 ): boolean {
+  return (
+    [
+      ...extraEncounters,
+      ...(includeGhostDog ? GHOST_DOG_ADVENTURES : []),
+      ...(includeJuneCleaver ? JUNE_CLEAVER_ADVENTURES : []),
+      ...(includeVioletFog ? VIOLET_FOG_ADVENTURES : []),
+    ].includes(get("lastEncounter")) ||
+    (includeHolidayWanderers && lastEncounterWasHolidayWanderer())
+  );
+}
+
+// The skeletons of El Dia De Los Muertos Borrachos y Agradecido, which libram doesn't list
+const AGRADECIDO_WANDERERS = [2038, 2039, 2040];
+
+/**
+ * Every monster that only appears as a holiday wanderer, whatever today's holiday is.
+ */
+export function allHolidayWanderers(): Monster[] {
   return [
-    ...extraEncounters,
-    ...(includeGhostDog ? GHOST_DOG_ADVENTURES : []),
-    ...(includeHolidayWanderers
-      ? getTodaysHolidayWanderers().map((monster) => monster.name)
-      : []),
-    ...(includeJuneCleaver ? JUNE_CLEAVER_ADVENTURES : []),
-    ...(includeVioletFog ? VIOLET_FOG_ADVENTURES : []),
-  ].includes(get("lastEncounter"));
+    ...new Set([...libramHolidayWanderers.values()].flat()),
+    ...AGRADECIDO_WANDERERS.map((id) => toMonster(id)).filter(
+      (monster) => monster !== $monster.none,
+    ),
+  ];
+}
+
+// Encounter names can carry an article, as in "El Padre Cadáver"
+function lastEncounterWasHolidayWanderer(): boolean {
+  const encounter = get("lastEncounter");
+  return allHolidayWanderers().some(
+    ({ name }) => encounter === name || encounter.endsWith(` ${name}`),
+  );
 }
 
 export const juneCleaverChoiceValues = {

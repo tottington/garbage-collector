@@ -49,7 +49,6 @@ import {
   CinchoDeMayo,
   Counter,
   get,
-  getTodaysHolidayWanderers,
   have,
   HeavyRains,
   SongBoom,
@@ -61,6 +60,7 @@ import { canOpenRedPresent, timeToMeatify } from "./familiar/lib";
 import { meatFamiliar } from "./familiar/meatFamiliar";
 import { estimatedGarboTurns, wanderingCopytargetsRemaining } from "./turns";
 import {
+  allHolidayWanderers,
   gooseDroneEligible,
   isStrongScaler,
   maxPassiveDamage,
@@ -150,7 +150,7 @@ export class Macro extends StrictMacro {
 
     const monsters = [
       ...(myPath() === HeavyRains.path ? [...HeavyRains.wanderers] : []),
-      ...getTodaysHolidayWanderers(),
+      ...allHolidayWanderers(),
     ];
 
     return this.externalIf(monsters.length > 0, Macro.if_(monsters, macro));
