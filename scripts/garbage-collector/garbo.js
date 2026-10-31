@@ -31390,6 +31390,17 @@ function floodTreasury() {
   }
 }
 
+/**
+ * Wield the acorndion through KoL's equip page. Garbo's outfits can't validate it while mafia only half knows it.
+ */
+function equipAcorndion() {
+  if (kolmafia.equippedItem($slot`weapon`).id === ACORNDION_ID) return;
+  kolmafia.visitUrl(`inv_equip.php?pwd&which=2&action=equip&whichitem=${ACORNDION_ID}`);
+  if (kolmafia.equippedItem($slot`weapon`).id !== ACORNDION_ID) {
+    kolmafia.print("Couldn't equip the legendary acorndion.", HIGHLIGHT);
+  }
+}
+
 function dessertIslandWorthIt() {
   // estimating value of giant giant crab at 5*VOA, it has 2000 base meat
   return garboValue($item`cocoa of youth`) > 5 * get$2("valueOfAdventure");
@@ -32076,11 +32087,10 @@ var TREASURY_SETUP_TASKS = [{
   completed: () => !farmingTreasury() || treasuryPlantingDone(),
   prepare: () => {
     ensureFishy();
+    equipAcorndion();
     prepareTreasuryPlanting();
   },
-  outfit: context => barfOutfit(_objectSpread2(_objectSpread2({}, FarmingStrategy.outfit(context)), {}, {
-    weapon: acorndion()
-  })),
+  outfit: context => barfOutfit(FarmingStrategy.outfit(context)),
   do: TREASURY,
   combat: new GarboStrategy(() => treasuryPlantingMacro()),
   post: recordTreasuryPlanting,
