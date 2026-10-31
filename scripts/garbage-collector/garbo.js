@@ -20342,7 +20342,26 @@ function lastAdventureWasWeird() {
     includeJuneCleaver = _ref$includeJuneCleav === void 0 ? true : _ref$includeJuneCleav,
     _ref$includeVioletFog = _ref.includeVioletFog,
     includeVioletFog = _ref$includeVioletFog === void 0 ? true : _ref$includeVioletFog;
-  return [].concat(_toConsumableArray(extraEncounters), _toConsumableArray(includeGhostDog ? GHOST_DOG_ADVENTURES : []), _toConsumableArray(includeHolidayWanderers ? getTodaysHolidayWanderers().map(monster => monster.name) : []), _toConsumableArray(includeJuneCleaver ? JUNE_CLEAVER_ADVENTURES : []), _toConsumableArray(includeVioletFog ? VIOLET_FOG_ADVENTURES : [])).includes(get$2("lastEncounter"));
+  return [].concat(_toConsumableArray(extraEncounters), _toConsumableArray(includeGhostDog ? GHOST_DOG_ADVENTURES : []), _toConsumableArray(includeJuneCleaver ? JUNE_CLEAVER_ADVENTURES : []), _toConsumableArray(includeVioletFog ? VIOLET_FOG_ADVENTURES : [])).includes(get$2("lastEncounter")) || includeHolidayWanderers && lastEncounterWasHolidayWanderer();
+}
+
+// The skeletons of El Dia De Los Muertos Borrachos y Agradecido, which libram doesn't list
+var AGRADECIDO_WANDERERS = [2038, 2039, 2040];
+
+/**
+ * Every monster that only appears as a holiday wanderer, whatever today's holiday is.
+ */
+function allHolidayWanderers() {
+  return [].concat(_toConsumableArray(new Set(_toConsumableArray(holidayWanderers.values()).flat())), _toConsumableArray(AGRADECIDO_WANDERERS.map(id => kolmafia.toMonster(id)).filter(monster => monster !== $monster.none)));
+}
+
+// Encounter names can carry an article, as in "El Padre Cadáver"
+function lastEncounterWasHolidayWanderer() {
+  var encounter = get$2("lastEncounter");
+  return allHolidayWanderers().some(_ref2 => {
+    var name = _ref2.name;
+    return encounter === name || encounter.endsWith(` ${name}`);
+  });
 }
 var juneCleaverChoiceValues = {
   1467: {
@@ -20414,9 +20433,9 @@ function bestShadowRift() {
         // so we don't really need to compute the actual outfit (or the dropModifier for that matter actually)
         var dropModifier = 1 + kolmafia.numericModifier("Item Drop") / 100;
         return sum(kolmafia.getMonsters(l), m => {
-          return sum(kolmafia.itemDropsArray(m), _ref2 => {
-            var drop = _ref2.drop,
-              rate = _ref2.rate;
+          return sum(kolmafia.itemDropsArray(m), _ref3 => {
+            var drop = _ref3.drop,
+              rate = _ref3.rate;
             return garboValue(drop) * clamp(rate * dropModifier / 100, 0, 1);
           });
         });
@@ -20611,9 +20630,9 @@ var luckyAdventures = [{
   phase: "target",
   value: () => kolmafia.canAdventure($location`Cobb's Knob Treasury`) ? 3 * get$2("valueOfAdventure") // Rough estimation, they have 4x the basemeat of barf
   : 0
-}].concat(_toConsumableArray(luckyAdventureValues.map(_ref3 => {
-  var location = _ref3.location,
-    _value = _ref3.value;
+}].concat(_toConsumableArray(luckyAdventureValues.map(_ref4 => {
+  var location = _ref4.location,
+    _value = _ref4.value;
   return {
     location,
     phase: "barf",
@@ -20621,8 +20640,8 @@ var luckyAdventures = [{
   };
 })));
 function determineBestLuckyAdventure() {
-  return maxBy(luckyAdventures, _ref4 => {
-    var value = _ref4.value;
+  return maxBy(luckyAdventures, _ref5 => {
+    var value = _ref5.value;
     return value();
   });
 }
@@ -20632,8 +20651,8 @@ function getBestLuckyAdventure() {
 }
 var SCALE_PATTERN = /Scale: /;
 var CAP_PATTERN = /Cap: (\d*)/;
-function calculateScalerCap(_ref5) {
-  var attributes = _ref5.attributes;
+function calculateScalerCap(_ref6) {
+  var attributes = _ref6.attributes;
   var scaleMatch = SCALE_PATTERN.test(attributes);
   if (!scaleMatch) return 0;
   var capMatch = CAP_PATTERN.exec(attributes);
@@ -20651,10 +20670,10 @@ function scalerCap(monster) {
 var STRONG_SCALER_THRESHOLD = 1_000;
 var isStrongScaler = m => scalerCap(m) > STRONG_SCALER_THRESHOLD;
 var isFreeAndCopyable = monster => monster.copyable && monster.attributes.includes("FREE");
-var valueDrops = monster => sum(kolmafia.itemDropsArray(monster), _ref6 => {
-  var drop = _ref6.drop,
-    rate = _ref6.rate,
-    type = _ref6.type;
+var valueDrops = monster => sum(kolmafia.itemDropsArray(monster), _ref7 => {
+  var drop = _ref7.drop,
+    rate = _ref7.rate,
+    type = _ref7.type;
   return !["c", "0", "p", "a"].includes(type) ? garboValue(drop) * rate / 100 : 0;
 });
 var isFree = monster => monster.attributes.includes("FREE");
@@ -25436,7 +25455,7 @@ var Macro = /*#__PURE__*/function (_StrictMacro) {
     value: function ifInnateWanderer(macro) {
       // if this monster appears without action on the part of the script
 
-      var monsters = [].concat(_toConsumableArray(kolmafia.myPath() === path ? _toConsumableArray(wanderers) : []), _toConsumableArray(getTodaysHolidayWanderers()));
+      var monsters = [].concat(_toConsumableArray(kolmafia.myPath() === path ? _toConsumableArray(wanderers) : []), _toConsumableArray(allHolidayWanderers()));
       return this.externalIf(monsters.length > 0, Macro.if_(monsters, macro));
     }
   }, {
@@ -30214,7 +30233,7 @@ var DailyTasks = [{
     avoid: $items`June cleaver, cursed magnifying glass, Kramco Sausage-o-Matic™`
   },
   spendsTurn: false,
-  combat: new GarboStrategy(() => Macro.if_([$monster`giant rubber spider`, $monster`time-spinner prank`].concat(_toConsumableArray(getTodaysHolidayWanderers())), Macro.basicCombat()).abortWithMsg("Unexpected combat encounter while attempting to get Eldritch Attunment from Generic Summer Holiday"))
+  combat: new GarboStrategy(() => Macro.if_([$monster`giant rubber spider`, $monster`time-spinner prank`].concat(_toConsumableArray(allHolidayWanderers())), Macro.basicCombat()).abortWithMsg("Unexpected combat encounter while attempting to get Eldritch Attunment from Generic Summer Holiday"))
 }, {
   name: "Check Neverending Party Quest",
   ready: () => (get$2("neverendingPartyAlways") || get$2("_neverendingPartyToday")) && get$2("_questPartyFair") === "unstarted",
