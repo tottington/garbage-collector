@@ -111,7 +111,7 @@ export function meatMood({
     }
   }
 
-  if (FarmingStrategy.isUnderwater()) {
+  if (FarmingStrategy.needsDivingGear()) {
     const availableDonhoTurnsFromSkill = 10 * (50 - get("_donhosCasts"));
     if (get("_donhosCasts") < 50 && !globalOptions.ascend) {
       useSkill($skill`Donho's Bubbly Ballad`, 50 - get("_donhosCasts"));
@@ -124,6 +124,12 @@ export function meatMood({
       useSkill($skill`Donho's Bubbly Ballad`, 50 - get("_donhosCasts"));
       mood.potion($item`recording of Donho's Bubbly Ballad`, 0.2 * meat);
     }
+  }
+
+  // Close the Treasury's noncombats
+  if (FarmingStrategy.location === $location`Cobb's Knob Treasury`) {
+    mood.skill($skill`Musk of the Moose`);
+    mood.skill($skill`Carlweather's Cantata of Confrontation`);
   }
 
   mood.skill($skill`Walk: Leisurely Amble`);

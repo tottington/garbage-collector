@@ -52,7 +52,7 @@ import {
 
 function familiarNeedsBoot(familiar: Familiar): boolean {
   return (
-    FarmingStrategy.isUnderwater() &&
+    FarmingStrategy.needsDivingGear() &&
     !have($effect`Driving Waterproofly`) &&
     !familiar.underwater
   );
@@ -69,7 +69,7 @@ function outfitCacheKey(familiar: Familiar): OutfitCacheKey {
 
   const lepMultiplier = findLeprechaunMultiplier(familiar);
 
-  if (!FarmingStrategy.isUnderwater()) {
+  if (!FarmingStrategy.needsDivingGear()) {
     return lepMultiplier;
   }
 

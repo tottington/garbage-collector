@@ -193,7 +193,7 @@ function cookbookbatPerilBonus(): number {
 
   const cookbookbatQuestLocations = locationsWithMonsters.filter(
     (l) =>
-      canAdventureOrUnlock(l, false, FarmingStrategy.isUnderwater()) &&
+      canAdventureOrUnlock(l, false, FarmingStrategy.needsDivingGear()) &&
       !canAdvExclusions.includes(l),
   );
   const availablePeridotCookbookbatLocations = cookbookbatQuestLocations.filter(

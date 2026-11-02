@@ -261,7 +261,7 @@ export class Potion {
     return (
       this.effectValues?.meatDrop ??
       getModifier("Meat Drop", this.effect()) +
-        (FarmingStrategy.isUnderwater()
+        (FarmingStrategy.needsDivingGear()
           ? getModifier("Meat Drop Penalty", this.effect())
           : 0) +
         2 * (usingPurse() ? this.smithsness() : 0)

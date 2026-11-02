@@ -6,6 +6,7 @@ export enum FarmingMethod {
   BARF_MOUNTAIN = "Barf Mountain",
   THE_CORAL_CORRAL = "The Coral Corral",
   THE_MARINARA_TRENCH = "The Marinara Trench",
+  COBBS_KNOB_TREASURY = "Cobb's Knob Treasury",
 }
 
 const workshedAliases = [
@@ -49,6 +50,10 @@ const farmingStrategyAliases: Record<
   [FarmingMethod.THE_MARINARA_TRENCH]: {
     location: $location`The Marinara Trench`,
     aliases: ["trench", "marinara", "inko", "squido", "ATTheSea"],
+  },
+  [FarmingMethod.COBBS_KNOB_TREASURY]: {
+    location: $location`Cobb's Knob Treasury`,
+    aliases: ["idmgo", "treasury", "treasurymaxx", "floodo"],
   },
 };
 

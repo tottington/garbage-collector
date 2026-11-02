@@ -6,6 +6,7 @@ import {
   myLocation,
   toMonster,
   totalTurnsPlayed,
+  use,
 } from "kolmafia";
 import { $effect, CrepeParachute } from "libram";
 import { Quest } from "grimoire-kolmafia";
@@ -27,8 +28,89 @@ import { estimatedGarboTurns } from "../../turns";
 import { barfOutfit } from "../../outfit/barf";
 import { FarmingContext } from "../context";
 import { acquire } from "../../acquire";
+import { Macro } from "../../combat";
+import { GarboStrategy } from "../../combatStrategy";
+import {
+  canFarmTreasury,
+  equipAcorndion,
+  floodTreasury,
+  leaveTreasury,
+  prepareTreasuryPlanting,
+  recordTreasuryPlanting,
+  treasuryPlantingMacro,
+} from "../../resources/acorndion";
+import {
+  noteBanishedGoblins,
+  TREASURY,
+  treasuryAcorns,
+  treasuryFlooded,
+  treasuryPlantingDone,
+} from "../../resources/acornState";
+
+const farmingTreasury = () => FarmingStrategy.location === TREASURY;
+
+function ensureFishy(): void {
+  if (
+    !have($effect`Fishy`) &&
+    have($item`fishy pipe`) &&
+    !get("_fishyPipeUsed")
+  ) {
+    use($item`fishy pipe`);
+  }
+}
+
+// Flood the Treasury with Summon a Wave and plant the acorndion's acorns before farming it
+const TREASURY_SETUP_TASKS: GarboTask<FarmingContext>[] = [
+  {
+    name: "Leave the Treasury",
+    ready: farmingTreasury,
+    completed: () => !farmingTreasury() || canFarmTreasury(),
+    do: () => leaveTreasury("The Treasury has no sea cows left to farm."),
+    spendsTurn: false,
+  },
+  {
+    name: "Visit the Treasury",
+    ready: () => farmingTreasury() && !get("_seadentWaveUsed"),
+    completed: () => treasuryFlooded() || get("lastAdventure") === TREASURY,
+    outfit: (context) => barfOutfit(FarmingStrategy.outfit(context)),
+    do: TREASURY,
+    combat: new GarboStrategy(() => Macro.meatKill()),
+    post: floodTreasury,
+    spendsTurn: true,
+  },
+  {
+    name: "Flood the Treasury",
+    ready: () => farmingTreasury() && get("lastAdventure") === TREASURY,
+    completed: () => treasuryFlooded() || get("_seadentWaveUsed"),
+    do: floodTreasury,
+    spendsTurn: false,
+  },
+  {
+    name: "Plant Treasury acorns",
+    ready: () => farmingTreasury() && treasuryFlooded(),
+    completed: () => !farmingTreasury() || treasuryPlantingDone(),
+    prepare: () => {
+      ensureFishy();
+      equipAcorndion();
+      prepareTreasuryPlanting();
+    },
+    outfit: (context) => barfOutfit(FarmingStrategy.outfit(context)),
+    do: TREASURY,
+    combat: new GarboStrategy(() => treasuryPlantingMacro()),
+    post: recordTreasuryPlanting,
+    spendsTurn: true,
+  },
+  {
+    name: "Leave the Treasury without sea cows",
+    ready: () => farmingTreasury() && treasuryPlantingDone(),
+    completed: () => !farmingTreasury() || treasuryAcorns().seaCows,
+    do: () => leaveTreasury("The sea cow acorn didn't take in the Treasury."),
+    spendsTurn: false,
+  },
+];
 
 export const farmPrepare = (context: FarmingContext) => {
+  if (farmingTreasury()) noteBanishedGoblins();
   if (redTaffyWorth() && FarmingStrategy.isUnderwater()) {
     acquire(
       estimatedGarboTurns(),
@@ -66,9 +148,11 @@ export function FarmTurnQuest(): Quest<
   GarboTask<FarmingContext>,
   FarmingContext
 > {
+  const location = FarmingStrategy.location;
   return {
-    name: `${FarmingStrategy.location}`,
+    name: `${location}`,
     tasks: [
+      ...(location === TREASURY ? TREASURY_SETUP_TASKS : []),
       {
         name: "Parachute",
         ready: () =>
@@ -90,7 +174,9 @@ export function FarmTurnQuest(): Quest<
       },
       {
         name: "Farm",
-        completed: () => myAdventures() === 0,
+        ready: () => location !== TREASURY || treasuryAcorns().seaCows,
+        completed: () =>
+          myAdventures() === 0 || FarmingStrategy.location !== location,
         prepare: farmPrepare,
         outfit: (context) => barfOutfit(FarmingStrategy.outfit(context)),
         do: FarmingStrategy.location,
@@ -118,6 +204,6 @@ export function FarmTurnQuest(): Quest<
         spendsTurn: true,
       },
     ],
-    completed: () => !canContinue(),
+    completed: () => !canContinue() || FarmingStrategy.location !== location,
   };
 }
