@@ -173,7 +173,8 @@ export function canFarmTreasury(): boolean {
  * Move farming off the Treasury when it can't be flooded, its sea cows have run out or the sea cow acorn didn't take.
  */
 export function leaveTreasury(reason: string): void {
-  uneffect($effect`Carlweather's Cantata of Confrontation`);
+  const cantata = $effect`Carlweather's Cantata of Confrontation`;
+  if (have(cantata)) uneffect(cantata);
   globalOptions.prefs.farmingMethod = FarmingMethod.THE_CORAL_CORRAL;
   if (!FarmingStrategy.available) {
     globalOptions.prefs.farmingMethod = FarmingMethod.BARF_MOUNTAIN;
