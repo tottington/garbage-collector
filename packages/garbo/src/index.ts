@@ -126,7 +126,7 @@ export function main(argString = ""): void {
     globalOptions.prefs.farmingMethod === FarmingMethod.COBBS_KNOB_TREASURY &&
     !canFarmTreasury()
   ) {
-    leaveTreasury("The Treasury can't be flooded today.");
+    leaveTreasury("The Treasury has no sea cows to farm today.");
   }
 
   if (!FarmingStrategy.available) {
@@ -598,8 +598,10 @@ export function main(argString = ""): void {
         try {
           const farmLocation = FarmingStrategy.location;
           runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
-          // Farming moves off the Treasury when it can't be flooded or the sea cow acorn fails
+          // Farming moves off the Treasury when its sea cows run out
           if (FarmingStrategy.location !== farmLocation) {
+            if (FarmingStrategy.ensureBarfAccess) ensureBarfAccess();
+            meatMood().execute(estimatedGarboTurns());
             runGarboFarmQuests([PostQuest(), ...FarmQuests()]);
           }
           runGarboQuests([FinishUpQuest]);

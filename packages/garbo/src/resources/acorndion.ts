@@ -11,14 +11,17 @@ import {
   useSkill,
   visitUrl,
 } from "kolmafia";
-import { $item, $skill, $slot, get, have } from "libram";
+import { $effect, $item, $skill, $slot, get, have, uneffect } from "libram";
 import { Macro } from "../combat";
 import { FarmingMethod, globalOptions } from "../config";
 import { FarmingStrategy } from "../farmingStrategy";
 import { HIGHLIGHT, setChoice } from "../lib";
 import {
+  acornSeaCowsLeft,
   AcornState,
   goblinsToAcornBanish,
+  noteBanishedGoblins,
+  recordTreasuryFight,
   saveTreasuryAcorns,
   TREASURY,
   treasuryAcorns,
@@ -110,6 +113,7 @@ export function treasuryPlantingMacro(): Macro {
 let acornsBeforeFight: number | null = null;
 
 export function prepareTreasuryPlanting(): void {
+  noteBanishedGoblins();
   acornsBeforeFight = acornsGeneratedToday();
   if (acornsBeforeFight === null) {
     print(
@@ -125,6 +129,7 @@ export function prepareTreasuryPlanting(): void {
  * Record what the last planting fight planted, judged by the acorndion's daily count.
  */
 export function recordTreasuryPlanting(): void {
+  recordTreasuryFight();
   const state = treasuryAcorns();
   const monster = toMonster(get("lastEncounter"));
   const acorn = intendedAcorn(state, monster);
@@ -153,16 +158,22 @@ export function recordTreasuryPlanting(): void {
 }
 
 /**
- * @returns Whether the Treasury can be farmed today: the acorndion is owned and the Treasury is or can be flooded
+ * @returns Whether the Treasury can be farmed: acorns can still bring sea cows, the acorndion is owned and the Treasury is or can be flooded
  */
 export function canFarmTreasury(): boolean {
-  return canAdventure(TREASURY) && haveAcorndion() && treasuryFloodable();
+  return (
+    acornSeaCowsLeft() &&
+    canAdventure(TREASURY) &&
+    haveAcorndion() &&
+    treasuryFloodable()
+  );
 }
 
 /**
- * Move farming off the Treasury when it can't be flooded or the sea cow acorn didn't take.
+ * Move farming off the Treasury when it can't be flooded, its sea cows have run out or the sea cow acorn didn't take.
  */
 export function leaveTreasury(reason: string): void {
+  uneffect($effect`Carlweather's Cantata of Confrontation`);
   globalOptions.prefs.farmingMethod = FarmingMethod.THE_CORAL_CORRAL;
   if (!FarmingStrategy.available) {
     globalOptions.prefs.farmingMethod = FarmingMethod.BARF_MOUNTAIN;

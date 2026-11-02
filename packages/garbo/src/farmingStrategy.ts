@@ -42,6 +42,7 @@ import { expectedDropValue, songboomMeat } from "./lib";
 import {
   BANISH_ACORNS,
   MAX_PLANTING_FIGHTS,
+  recordTreasuryFight,
   TREASURY_GOBLINS,
   treasuryAcorns,
 } from "./resources/acornState";
@@ -315,6 +316,7 @@ const COBBS_KNOB_TREASURY: FarmingStrategyOptions = {
   // Sea cows keep Fishy up, and the Treasury needs no seahorse
   available: effectFact($monster`sea cow`) === $effect`Fishy`,
   floods: true,
+  post: recordTreasuryFight,
   get banishMonsters(): Monster[] {
     const acorns = treasuryAcorns();
     return acorns.banished.length >= BANISH_ACORNS ||

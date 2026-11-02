@@ -40,6 +40,7 @@ import {
   treasuryPlantingMacro,
 } from "../../resources/acorndion";
 import {
+  noteBanishedGoblins,
   TREASURY,
   treasuryAcorns,
   treasuryFlooded,
@@ -64,7 +65,7 @@ const TREASURY_SETUP_TASKS: GarboTask<FarmingContext>[] = [
     name: "Leave the Treasury",
     ready: farmingTreasury,
     completed: () => !farmingTreasury() || canFarmTreasury(),
-    do: () => leaveTreasury("The Treasury can't be flooded today."),
+    do: () => leaveTreasury("The Treasury has no sea cows left to farm."),
     spendsTurn: false,
   },
   {
@@ -109,6 +110,7 @@ const TREASURY_SETUP_TASKS: GarboTask<FarmingContext>[] = [
 ];
 
 export const farmPrepare = (context: FarmingContext) => {
+  if (farmingTreasury()) noteBanishedGoblins();
   if (redTaffyWorth() && FarmingStrategy.isUnderwater()) {
     acquire(
       estimatedGarboTurns(),

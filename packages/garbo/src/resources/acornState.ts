@@ -1,4 +1,4 @@
-import { Monster, myAscensions, toMonster } from "kolmafia";
+import { isBanished, Monster, myAscensions, toMonster } from "kolmafia";
 import { $location, $monsters, get, set } from "libram";
 
 export const TREASURY = $location`Cobb's Knob Treasury`;
@@ -8,6 +8,9 @@ const STATE_PREF = "garboTreasuryAcorns";
 // A zone takes one acorn of each kind: sea cows, a Zydeco and a banish
 export const ZYDECO_ACORNS = 1;
 export const BANISH_ACORNS = 1;
+// Acorns stop bringing sea cows after 33 fights an ascension, counting every zone
+const MAX_ACORN_SEA_COWS = 33;
+const SEA_COWS_PREF = "_garboAcornSeaCows";
 
 export type AcornState = {
   ascension: number;
@@ -82,4 +85,43 @@ export function treasuryPlantingDone(): boolean {
       goblinsToAcornBanish(state).length === 0) ||
     state.fights >= MAX_PLANTING_FIGHTS
   );
+}
+
+function acornSeaCowsFought(): number {
+  const [ascension, fought] = get(SEA_COWS_PREF, "").split("|");
+  return Number(ascension) === myAscensions() ? Number(fought) || 0 : 0;
+}
+
+function setAcornSeaCowsFought(fought: number): void {
+  set(SEA_COWS_PREF, `${myAscensions()}|${fought}`);
+}
+
+/**
+ * @returns Whether acorns can still bring sea cows this ascension
+ */
+export function acornSeaCowsLeft(): boolean {
+  return acornSeaCowsFought() < MAX_ACORN_SEA_COWS;
+}
+
+let goblinsBanishedBeforeFight: Monster[] = [];
+/**
+ * Remember which goblins are banished before a Treasury fight, since the fight may banish another.
+ */
+export function noteBanishedGoblins(): void {
+  const { banished } = treasuryAcorns();
+  goblinsBanishedBeforeFight = TREASURY_GOBLINS.filter(
+    (goblin) => isBanished(goblin) || banished.includes(goblin),
+  );
+}
+
+/**
+ * Count a Treasury fight toward the acorn sea cow limit. A banished goblin only appears when the zone has nothing else left, which also catches sea cows fought elsewhere.
+ */
+export function recordTreasuryFight(): void {
+  const encounter = get("lastEncounter");
+  if (encounter === "sea cow") {
+    setAcornSeaCowsFought(acornSeaCowsFought() + 1);
+  } else if (goblinsBanishedBeforeFight.includes(toMonster(encounter))) {
+    setAcornSeaCowsFought(MAX_ACORN_SEA_COWS);
+  }
 }
