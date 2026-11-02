@@ -8,7 +8,8 @@ const STATE_PREF = "garboTreasuryAcorns";
 // A zone takes one acorn of each kind: sea cows, a Zydeco and a banish
 export const ZYDECO_ACORNS = 1;
 export const BANISH_ACORNS = 1;
-// Acorns stop bringing sea cows after 33 fights an ascension, counting every zone
+// Acorns stop bringing sea cows after 33 fights a day, counting every zone.
+// Ascending resets the limit.
 const MAX_ACORN_SEA_COWS = 33;
 const SEA_COWS_PREF = "_garboAcornSeaCows";
 
@@ -97,7 +98,7 @@ function setAcornSeaCowsFought(fought: number): void {
 }
 
 /**
- * @returns Whether acorns can still bring sea cows this ascension
+ * @returns Whether acorns can still bring sea cows before the next rollover or ascension
  */
 export function acornSeaCowsLeft(): boolean {
   return acornSeaCowsFought() < MAX_ACORN_SEA_COWS;
