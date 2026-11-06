@@ -3,7 +3,6 @@ import { PearlTarget, PearlTargets } from "garbo-lib";
 import {
   adv1,
   canAdventure,
-  canEquip,
   Item,
   Location,
   mpCost,
@@ -13,6 +12,7 @@ import {
   myHp,
   myMaxhp,
   myMaxmp,
+  myTurncount,
   numericModifier,
   print,
   restoreHp,
@@ -23,18 +23,17 @@ import {
 } from "kolmafia";
 import {
   $effect,
+  $item,
   $items,
   $location,
   $skill,
   $slot,
   $stat,
   get,
-  getModifier,
   have,
   PeridotOfPeril,
   set,
   sum,
-  undelay,
 } from "libram";
 import { Macro } from "../../combat";
 import { GarboStrategy } from "../../combatStrategy";
@@ -48,19 +47,20 @@ import {
   getBestLuckyAdventure,
   getFreeFishy,
   HIGHLIGHT,
+  needsDelevel,
   sober,
 } from "../../lib";
 import { meatMood } from "../../mood";
-import { barfOutfit } from "../../outfit/barf";
+import { barfOutfit, computeBarfOutfit } from "../../outfit/barf";
 import { freeFightOutfit } from "../../outfit/free";
-import { waterBreathingEquipment } from "../../outfit/lib";
+import { canBreatheUnderwater } from "../../outfit/lib";
 import {
   acorndion,
+  AcornKind,
   acornsGeneratedToday,
   acornSite,
   acornSkill,
   acornsLeftToday,
-  equipAcorndion,
   haveAcorndion,
   observeAcornFight,
   recordPlanting,
@@ -69,22 +69,27 @@ import { luckySourceTasks } from "../../resources/lucky";
 import {
   avoidedPearlGear,
   chiassoTarget,
+  fightsLeftAt,
   luckyHazard,
   moxieMargin,
   noteCow,
   openPearlZones,
   parkaMode,
-  pearlFightsLeft,
+  pearlBlock,
   pearlMonsters,
+  pearlReserve,
   planPearls,
   resistanceBuffs,
-  setPearlTurnsReserved,
+  resistanceModifier,
+  setPearlBlock,
   worstPearlAdventures,
-  zoneChoices,
   ZonePlan,
 } from "../../resources/pearls";
 import { trackMarginalMpa } from "../../session";
-import { estimatedGarboTurns } from "../../turns";
+import {
+  estimatedGarboTurns,
+  wanderingCopytargetsRemaining,
+} from "../../turns";
 import { FarmingContext } from "../context";
 import { GarboTask } from "../engine";
 import { canContinue } from "./lib";
@@ -93,78 +98,59 @@ import { nonBarfTurns } from "./nonBarfTurn";
 type PearlTask = GarboTask<FarmingContext>;
 
 // Holds the ascension whose pearl block has started, so the block keeps going as its reserve shrinks
-const BLOCK_PREF = "_garboPearlBlock";
-const PLANT_FAILED_PREF = "_garboPearlPlantFailed";
+const BLOCK_PREF = "_garbo_pearlBlock";
+const PLANT_FAILED_PREF = "_garbo_pearlPlantFailed";
 const PLANT_ATTEMPTS = 3;
 
-let plan: ZonePlan[] | null = null;
-let decided = false;
 let checkedAt: number | null = null;
 let acornsLeft: number | null = null;
-let reported = false;
-let hagglingFailed = false;
+let announced = false;
 const started = new Set<Location>();
 const plantAttempts = new Map<Location, number>();
 // Resistance worn in a zone's last pearl fight, when it fell short of the plan
 const wornResistance = new Map<Location, number>();
 
-const budget = () => myAdventures() - globalOptions.saveTurns;
-// The budget left after the non-barf turns garbo will still take ahead of the pearl tasks
-const blockBudget = () => budget() - nonBarfTurns();
+// The adventures garbo will still spend, stopping at saveTurns or at the turn count it was given
+const budget = () =>
+  Math.min(
+    myAdventures() - globalOptions.saveTurns,
+    globalOptions.stopTurncount === null
+      ? Infinity
+      : globalOptions.stopTurncount - myTurncount(),
+  );
+// The budget left after the non-barf turns and copied wanderers garbo will still take ahead of the pearl tasks
+const blockBudget = () =>
+  budget() - nonBarfTurns() - wanderingCopytargetsRemaining();
 // An underwater adventure costs 2 without Fishy
 const fightCost = () => (freeFishyTurns() > 0 ? 1 : 2);
 const plantingAllowed = () => haveAcorndion() && !get(PLANT_FAILED_PREF, false);
-const canBreatheUnderwater = () =>
-  getModifier("Adventure Underwater") ||
-  waterBreathingEquipment.some((item) => have(item) && canEquip(item));
-
-const reserve = (zones: ZonePlan[]) =>
-  sum(
-    zones.filter((zone) => zone.farm),
-    (zone) => Math.ceil(1.15 * zone.adventures) + (zone.plant ? 1 : 0),
-  ) + 3;
 
 /**
- * Start the pearl block once the adventures left fall to what the farmed zones need.
+ * Decide the pearl block once the adventures left fall to what the farmed zones need.
  * Adventures above saveTurns never count more turns than garbo has left, so an error starts the block early.
- * @returns The block's zones once it has started
  */
-function blockPlan(): ZonePlan[] | null {
-  if (plan) return plan;
+function decidePearlBlock(): void {
   const latched = get(BLOCK_PREF, 0) === myAscensions();
-  if (decided || !sober() || checkedAt === myAdventures()) return null;
-  if (!openPearlZones().length) {
-    decided = true;
-    return null;
-  }
-  if (!latched && blockBudget() > worstPearlAdventures()) return null;
+  if (!sober() || checkedAt === myAdventures()) return;
+  if (!openPearlZones().length) return setPearlBlock([]);
+  if (!latched && blockBudget() > worstPearlAdventures()) return;
   checkedAt = myAdventures();
   // Acorns are lost on ascension, so a run that ends by ascending plants none
   const acorns = (acornsLeft ??=
     plantingAllowed() && !globalOptions.ascend ? acornsLeftToday() : 0);
   const zones = planPearls(acorns, freeFishyTurns());
   const farmed = zones.some((zone) => zone.farm);
-  if (!latched && farmed && blockBudget() > reserve(zones)) return null;
-  decided = true;
-  for (const zone of zones) print(zone.summary, HIGHLIGHT);
-  print(
-    `Pearl block: ${blockBudget()} adventures against a reserve of ${reserve(zones)}, ${acorns} acorns left today.`,
-    HIGHLIGHT,
-  );
-  if (!farmed) return null;
-  set(BLOCK_PREF, myAscensions());
-  trackMarginalMpa(0);
-  plan = zones;
-  return plan;
+  if (!latched && farmed && blockBudget() > pearlReserve(zones)) return;
+  setPearlBlock(zones);
 }
 
-setPearlTurnsReserved(() =>
-  plan
-    ? reserve(plan)
-    : decided || !sober() || !canBreatheUnderwater()
-      ? 0
-      : worstPearlAdventures(),
-);
+/**
+ * @returns Whether garbo has planned the pearl block, deciding it when the time comes
+ */
+function pearlBlockStarted(): boolean {
+  if (!pearlBlock()) decidePearlBlock();
+  return !!pearlBlock()?.length;
+}
 
 const fightResistance = (zone: ZonePlan) =>
   wornResistance.get(zone.target.location) ?? zone.resistance;
@@ -177,7 +163,7 @@ const zoneAdventures = (fights: number) =>
  * @returns The zone to fight in now: zones already started first, then fewest fights left, and a new zone only if the budget can finish it
  */
 function currentZone(ignoreLucky = false): ZonePlan | undefined {
-  const zones = (blockPlan() ?? [])
+  const zones = (pearlBlock() ?? [])
     .filter(
       ({ farm, target }) =>
         farm &&
@@ -190,7 +176,7 @@ function currentZone(ignoreLucky = false): ZonePlan | undefined {
     )
     .map((zone) => ({
       zone,
-      fights: pearlFightsLeft(zone.target, fightResistance(zone)),
+      fights: fightsLeftAt(zone.target, fightResistance(zone)),
       started: started.has(zone.target.location),
     }))
     .sort(
@@ -205,11 +191,8 @@ function currentZone(ignoreLucky = false): ZonePlan | undefined {
   )?.zone;
 }
 
-const resistanceModifier = (zone: ZonePlan) =>
-  `1000 ${zone.target.maximizeElement} Resistance ${zone.resistance} max`;
-
-const acornMp = (kinds: string) =>
-  sum([...kinds], (kind) => mpCost(acornSkill(kind)));
+const acornMp = (kinds: AcornKind[]) =>
+  sum(kinds, (kind) => mpCost(acornSkill(kind)));
 
 /**
  * Pick a kill for the planting fight that never attacks: a free kill that leaves the weapon slot to the acorndion, or a damage spell whose three casts cover the zone's toughest monster.
@@ -217,7 +200,7 @@ const acornMp = (kinds: string) =>
  */
 function plantingKill(
   location: Location,
-  kinds: string,
+  kinds: AcornKind[],
 ): { macro: Macro; mp: number; spec?: OutfitSpec } | null {
   const mp = acornMp(kinds);
   const freeKill = findFreeKill(
@@ -261,11 +244,11 @@ function plantingKill(
 /**
  * Plant the acorns on a zone monster while HP holds, kill it, and run if the kill falls short. Any other monster, or a failed run, gets garbo's usual kill.
  */
-function plantingMacro(location: Location, kinds: string): Macro {
-  const cast = (kind: string) =>
+function plantingMacro(location: Location, kinds: AcornKind[]): Macro {
+  const cast = (kind: AcornKind) =>
     Macro.if_("!hppercentbelow 50", Macro.trySkill(acornSkill(kind)));
   return Macro.if_(
-    pearlMonsters(location, "R"),
+    pearlMonsters(location, ["R"]),
     Macro.externalIf(
       kinds.includes("B"),
       Macro.if_(chiassoTarget(location), cast("B")),
@@ -284,13 +267,13 @@ const pearlStrategy = (macro: () => Macro) =>
 
 function zoneTasks(target: PearlTarget): PearlTask[] {
   const location = target.location;
-  const zone = () => plan?.find((z) => z.target === target);
+  const zone = () => pearlBlock()?.find((z) => z.target === target);
   const isCurrent = () => currentZone()?.target === target;
   const toPlant = () =>
-    [...(zone()?.plant ?? "")]
-      .filter((kind) => !acornSite(location).kinds.includes(kind))
-      .join("");
-  let planting = "";
+    (zone()?.plant ?? []).filter(
+      (kind) => !acornSite(location).kinds.includes(kind),
+    );
+  let planting: AcornKind[] = [];
   let acornsBefore: number | null = null;
   let progressBefore = 0;
 
@@ -301,21 +284,25 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
       plantingAllowed() &&
       (plantAttempts.get(location) ?? 0) < PLANT_ATTEMPTS &&
       plantingKill(location, toPlant()) !== null,
-    completed: () => get(target.completionPref) || !toPlant(),
+    completed: () => get(target.completionPref) || !toPlant().length,
     effects: resistanceBuffs,
     outfit: () =>
       freeFightOutfit(
         {
-          modifier: [resistanceModifier(zone() as ZonePlan)],
+          modifier: [
+            resistanceModifier(target, (zone() as ZonePlan).resistance),
+          ],
           equip: [
             ...(toPlant().includes("B") && PeridotOfPeril.canImperil(location)
               ? $items`Peridot of Peril`
               : []),
             ...(plantingKill(location, toPlant())?.spec?.equip ?? []),
           ],
-          ...(canEquip(acorndion()) ? { weapon: acorndion() } : {}),
+          weapon: acorndion(),
           modes: { parka: parkaMode(target.maximizeElement) },
-          avoid: $items`Mer-kin digpick, broken champagne bottle`,
+          avoid: avoidedPearlGear().filter(
+            (item) => item !== $item`Peridot of Peril`,
+          ),
         },
         location,
       ),
@@ -331,19 +318,10 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
           acornMp(planting) + (plantingKill(location, planting)?.mp ?? 0),
         ),
       );
-      if (!equipAcorndion()) {
-        print(
-          "Couldn't wield the legendary acorndion; no acorn planting today.",
-          "red",
-        );
-        set(PLANT_FAILED_PREF, true);
-        planting = "";
-      }
       acornsBefore = acornsGeneratedToday();
-      progressBefore = get(target.progressPref, 0);
+      progressBefore = get(target.progressPref);
     },
     do: () => {
-      if (!planting) return;
       if (myHp() < 0.9 * myMaxhp()) {
         print(`Can't plant acorns in ${location} safely now.`, HIGHLIGHT);
       } else if (moxieMargin(location) < 10) {
@@ -356,19 +334,20 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
         return;
       }
       plantAttempts.set(location, PLANT_ATTEMPTS);
-      planting = "";
+      planting = [];
     },
     choices: () => ({
       ...wanderer().getChoices(location),
-      ...zoneChoices(location),
-      1557: `1&bandersnatch=${chiassoTarget(location).id}`,
+      ...PeridotOfPeril.getChoiceObject(chiassoTarget(location)),
     }),
     combat: pearlStrategy(() => plantingMacro(location, toPlant())),
     post: () => {
-      if (!planting) return;
+      if (!planting.length) return;
       // A noncombat or a wanderer in place of the zone fight leaves the planting for another try
       if (
-        !pearlMonsters(location, "R").includes(toMonster(get("lastEncounter")))
+        !pearlMonsters(location, ["R"]).includes(
+          toMonster(get("lastEncounter")),
+        )
       ) {
         plantAttempts.set(location, (plantAttempts.get(location) ?? 1) - 1);
         return;
@@ -376,8 +355,7 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
       recordPlanting(location, planting, acornsBefore);
       noteCow(location, observeAcornFight(location));
       const won =
-        get(target.completionPref) ||
-        get(target.progressPref, 0) > progressBefore;
+        get(target.completionPref) || get(target.progressPref) > progressBefore;
       if (!won || have($effect`Beaten Up`)) {
         set(PLANT_FAILED_PREF, true);
         print(`Lost the acorn planting fight in ${location}.`, "red");
@@ -395,27 +373,20 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
       started.add(location);
       getFreeFishy();
       if (!(totalTurnsPlayed() % 11)) meatMood().execute(estimatedGarboTurns());
-      if (myHp() < 0.8 * myMaxhp()) restoreHp(0.9 * myMaxhp());
-      const planned = zone()?.resistance ?? 0;
       const worn = numericModifier(`${target.maximizeElement} Resistance`);
-      if (worn >= planned) {
-        wornResistance.delete(location);
-      } else if (wornResistance.get(location) !== worn) {
-        wornResistance.set(location, worn);
-        print(
-          `Wearing ${worn} ${target.maximizeElement} resistance in ${location}, below the planned ${planned}.`,
-          HIGHLIGHT,
-        );
-      }
+      if (worn >= (zone()?.resistance ?? 0)) wornResistance.delete(location);
+      else wornResistance.set(location, worn);
     },
     effects: resistanceBuffs,
     outfit: () => {
-      const modifier = [resistanceModifier(zone() as ZonePlan)];
+      const modifier = [
+        resistanceModifier(target, (zone() as ZonePlan).resistance),
+      ];
       const modes = { parka: parkaMode(target.maximizeElement) };
       if (FarmingStrategy.isUnderwater()) {
         return barfOutfit({ modifier, modes, avoid: avoidedPearlGear() });
       }
-      return barfOutfit({
+      return computeBarfOutfit({
         modifier: [...modifier, "+sea"],
         modes,
         avoid: avoidedPearlGear(),
@@ -423,12 +394,13 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
       });
     },
     do: location,
-    choices: () => ({
-      ...wanderer().getChoices(location),
-      ...zoneChoices(location),
-    }),
+    choices: () => wanderer().getChoices(location),
     combat: pearlStrategy(() =>
-      Macro.externalIf(moxieMargin(location) < 10, Macro.delevel()).meatKill(),
+      Macro.externalIf(
+        moxieMargin(location) < 10 ||
+          pearlMonsters(location).some(needsDelevel),
+        Macro.delevel(),
+      ).meatKill(),
     ),
     post: () => noteCow(location, observeAcornFight(location)),
     spendsTurn: true,
@@ -438,18 +410,16 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
   return [plant, fight];
 }
 
-const luckySource = () =>
-  luckySourceTasks.find((task) => !task.completed() && undelay(task.turns));
-
 /**
  * @returns Whether a Lucky! trip to The Haggling's 20 Fishy saves more adventures than its two adventures and the Lucky! are worth
  */
 function hagglingWorth(): boolean {
   const uncovered =
     sum(
-      plan?.filter((zone) => zone.farm && !get(zone.target.completionPref)) ??
-        [],
-      (zone) => pearlFightsLeft(zone.target, fightResistance(zone)),
+      pearlBlock()?.filter(
+        (zone) => zone.farm && !get(zone.target.completionPref),
+      ) ?? [],
+      (zone) => fightsLeftAt(zone.target, fightResistance(zone)),
     ) - freeFishyTurns();
   return (
     uncovered > 2 &&
@@ -464,42 +434,53 @@ function hagglingWorth(): boolean {
 const luckyBlocked = () =>
   have($effect`Lucky!`) && !currentZone() && !!currentZone(true);
 
-const haggling: PearlTask = {
-  name: "Pearl Lucky Fishy",
-  ready: () =>
-    !hagglingFailed &&
-    canAdventure($location`The Brinier Deepers`) &&
-    (luckyBlocked() ||
-      (freeFishyTurns() === 0 &&
-        budget() >= 3 &&
-        !!currentZone() &&
-        hagglingWorth())),
-  completed: () => !have($effect`Lucky!`) && !luckySource(),
-  outfit: () =>
-    freeFightOutfit(
-      { avoid: $items`Peridot of Peril` },
-      $location`The Brinier Deepers`,
-    ),
-  do: () => {
-    if (!have($effect`Lucky!`)) luckySource()?.do();
-    if (have($effect`Lucky!`)) adv1($location`The Brinier Deepers`, -1, "");
-    else hagglingFailed = true;
-  },
-  combat: new GarboStrategy(() => Macro.basicCombat()),
-  spendsTurn: true,
-  sobriety: "sober",
-};
+/**
+ * @returns Whether to spend a Lucky! on The Haggling: to use up a Lucky! that blocks a zone, or for Fishy the zones are worth
+ */
+const hagglingWanted = () =>
+  canAdventure($location`The Brinier Deepers`) &&
+  (luckyBlocked() ||
+    (freeFishyTurns() === 0 &&
+      budget() >= 3 &&
+      !!currentZone() &&
+      hagglingWorth()));
 
-const report: PearlTask = {
-  name: "Pearl Block Report",
-  ready: () => !!plan && !currentZone() && !have($effect`Lucky!`),
-  completed: () => reported,
+const hagglingTasks: PearlTask[] = [
+  ...luckySourceTasks.map((task) => ({
+    ...task,
+    name: `Pearl ${task.name}`,
+    ready: () => hagglingWanted() && task.ready(),
+  })),
+  {
+    name: "Pearl Lucky Fishy",
+    ready: () => have($effect`Lucky!`) && hagglingWanted(),
+    completed: () => !have($effect`Lucky!`),
+    outfit: () =>
+      freeFightOutfit(
+        { avoid: $items`Peridot of Peril` },
+        $location`The Brinier Deepers`,
+      ),
+    do: $location`The Brinier Deepers`,
+    combat: new GarboStrategy(() => Macro.basicCombat()),
+    spendsTurn: true,
+    sobriety: "sober",
+  },
+];
+
+const startBlock: PearlTask = {
+  name: "Start Pearl Block",
+  completed: () => announced,
   do: () => {
-    reported = true;
+    announced = true;
+    const zones = pearlBlock() ?? [];
+    for (const zone of zones) print(zone.summary, HIGHLIGHT);
     print(
-      `Pearl block done with ${budget()} adventures above saveTurns.`,
+      `Pearl block: ${blockBudget()} adventures against a reserve of ${pearlReserve(zones)}, ${acornsLeft ?? 0} acorns left today.`,
       HIGHLIGHT,
     );
+    if (!zones.some((zone) => zone.farm)) return;
+    set(BLOCK_PREF, myAscensions());
+    trackMarginalMpa(0);
   },
   spendsTurn: false,
 };
@@ -509,7 +490,7 @@ const report: PearlTask = {
  */
 export const PearlQuest = (): Quest<PearlTask, FarmingContext> => ({
   name: "Pearls",
-  ready: canBreatheUnderwater,
+  ready: () => canBreatheUnderwater() && pearlBlockStarted(),
   completed: () => !canContinue(),
-  tasks: [haggling, ...PearlTargets.flatMap(zoneTasks), report],
+  tasks: [startBlock, ...hagglingTasks, ...PearlTargets.flatMap(zoneTasks)],
 });
