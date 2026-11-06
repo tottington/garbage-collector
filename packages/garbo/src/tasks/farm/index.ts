@@ -1,6 +1,7 @@
 import { FarmTurnQuest } from "./farmTurn";
 import { DailyExtrasQuest } from "./dailyExtras";
 import { NonBarfTurnQuest } from "./nonBarfTurn";
+import { PearlQuest } from "./pearls";
 import { TurnGenQuest } from "./turnGen";
 import { WandererQuest } from "./wanderer";
 import { Quest } from "grimoire-kolmafia";
@@ -15,5 +16,6 @@ export const FarmQuests = (): Quest<
   DailyExtrasQuest,
   WandererQuest,
   NonBarfTurnQuest,
+  PearlQuest(),
   FarmTurnQuest(),
 ];
