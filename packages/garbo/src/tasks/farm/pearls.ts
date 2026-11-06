@@ -72,6 +72,7 @@ import {
   luckyHazard,
   moxieMargin,
   noteCow,
+  openPearlZones,
   parkaMode,
   pearlFightsLeft,
   pearlMonsters,
@@ -132,6 +133,10 @@ function blockPlan(): ZonePlan[] | null {
   if (plan) return plan;
   const latched = get(BLOCK_PREF, 0) === myAscensions();
   if (decided || !sober() || checkedAt === myAdventures()) return null;
+  if (!openPearlZones().length) {
+    decided = true;
+    return null;
+  }
   if (!latched && blockBudget() > worstPearlAdventures()) return null;
   checkedAt = myAdventures();
   // Acorns are lost on ascension, so a run that ends by ascending plants none
