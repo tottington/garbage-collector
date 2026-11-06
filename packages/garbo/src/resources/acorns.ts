@@ -5,21 +5,22 @@ import {
   Location,
   Monster,
   myAscensions,
+  myClass,
   print,
   Skill,
   toLocation,
   toMonster,
   visitUrl,
 } from "kolmafia";
-import { $item, $monster, $skill, $slot, get, have, set } from "libram";
+import { $class, $item, $monster, $skill, $slot, get, have, set } from "libram";
 import { HIGHLIGHT } from "../lib";
 
 /**
  * Acorns planted by the legendary acorndion's underwater skills: Juvenile Refrain (R) brings sea cows, Chiasso de los Muertos (B) banishes the monster it hits and Line of Zydeco (Z) lowers the zone's pressure.
  * Acorns last past rollover, so planted sites are kept per ascension in `garboAcornSites` as `<ascension>|<location id>:<kinds>[=<banished monster id>],...`.
  */
-export type AcornKind = "R" | "B" | "Z";
-export type AcornSite = { kinds: string; banished: Monster | null };
+type AcornKind = "R" | "B" | "Z";
+type AcornSite = { kinds: string; banished: Monster | null };
 
 const SITES_PREF = "garboAcornSites";
 // Holds the ascension in which a banished native showed up again, which means acorn sea cows ran out
@@ -28,12 +29,27 @@ const COWS_GONE_PREF = "_garboAcornCowsGone";
 export const acorndion = () => $item`legendary acorndion`;
 export const haveAcorndion = () => have(acorndion());
 
-export const acornSkill = (kind: AcornKind): Skill =>
-  ({
-    R: $skill`Juvenile Refrain`,
-    B: $skill`Chiasso de los Muertos`,
-    Z: $skill`Line of Zydeco`,
-  })[kind];
+/**
+ * @returns The skill that plants the acorn: an Accordion Thief's own song, or the lesser one the acorndion grants other classes
+ */
+export const acornSkill = (kind: string): Skill =>
+  myClass() === $class`Accordion Thief`
+    ? {
+        R: $skill`Bawdy Refrain`,
+        B: $skill`Concerto de los Muertos`,
+        Z: $skill`Cone of Zydeco`,
+      }[kind as AcornKind]
+    : {
+        R: $skill`Juvenile Refrain`,
+        B: $skill`Chiasso de los Muertos`,
+        Z: $skill`Line of Zydeco`,
+      }[kind as AcornKind];
+
+/**
+ * @returns The acorns' skill names, for printing
+ */
+export const acornNames = (kinds: string) =>
+  [...kinds].map((kind) => acornSkill(kind).name).join(", ") || "none";
 
 /**
  * @returns The acorns the acorndion generated today, read from its description, or null if the page didn't say
@@ -116,12 +132,12 @@ export function recordPlanting(
   location: Location,
   kinds: string,
   before: number | null,
-): string {
+): void {
   const after = acornsGeneratedToday();
   const actions = get("_lastCombatActions");
   const monster = toMonster(get("lastEncounter"));
   const cast = [...kinds].filter((kind) =>
-    actions.includes(`sk${acornSkill(kind as AcornKind).id};`),
+    actions.includes(`sk${acornSkill(kind).id};`),
   );
   const planted =
     before === null || after === null
@@ -131,10 +147,9 @@ export function recordPlanting(
     recordAcorns(location, planted, planted.includes("B") ? monster : null);
   }
   print(
-    `Acorns in ${location}: cast ${cast.join("") || "none"}, planted ${planted || "none"} (count ${before} to ${after}) fighting ${monster}.`,
+    `Acorns in ${location}: cast ${acornNames(cast.join(""))}, planted ${acornNames(planted)} (count ${before ?? "unknown"} to ${after ?? "unknown"}) fighting ${monster}.`,
     HIGHLIGHT,
   );
-  return planted;
 }
 
 /**
@@ -144,12 +159,16 @@ export const acornCowsGone = () => get(COWS_GONE_PREF, 0) === myAscensions();
 
 /**
  * Note acorn sea cows running out: a native banished by an acorn appears only once the zone's sea cows are gone.
+ * The fight that casts Chiasso de los Muertos on its target doesn't count.
  * @returns Whether the fight was an acorn sea cow
  */
 export function observeAcornFight(location: Location): boolean {
   const monster = toMonster(get("lastEncounter"));
   const { banished } = acornSite(location);
-  if (banished && monster === banished && !acornCowsGone()) {
+  const chiassoCast = get("_lastCombatActions").includes(
+    `sk${acornSkill("B").id};`,
+  );
+  if (banished && monster === banished && !chiassoCast && !acornCowsGone()) {
     set(COWS_GONE_PREF, myAscensions());
     print(
       `${monster} came back in ${location}, so acorn sea cows are gone.`,
