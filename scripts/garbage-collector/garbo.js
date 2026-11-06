@@ -18417,6 +18417,11 @@ You can use multiple options in conjunction, e.g. "garbo nobarf ascend"', {
     help: "skip eating and drinking anything as a part of its run (including pantsgiving).",
     default: false
   }),
+  pearlo: Args.flag({
+    setting: "",
+    help: "farm unblemished pearls at the end of the run when they are worth their adventures, planting legendary acorndion sea cows in the pearl zones if you have one.",
+    default: false
+  }),
   quick: Args.flag({
     setting: "",
     help: "garbo will sacrifice some optimal behaviors to run quicker. Estimated and actual profits may be less accurate in this mode. Sets quickcombat and quickgear.",
@@ -34528,7 +34533,7 @@ function setPearlBlock(zones) {
 /**
  * @returns The adventures held back at the end of garbo's farming for the pearl block
  */
-var pearlTurnsReserved = () => block ? pearlReserve(block) : !sober() || !canBreatheUnderwater() ? 0 : worstPearlAdventures();
+var pearlTurnsReserved = () => block ? pearlReserve(block) : !globalOptions.pearlo || !sober() || !canBreatheUnderwater() ? 0 : worstPearlAdventures();
 var probes = new Map();
 /**
  * Simulate the maximizer at each resistance tier, counting the free resistance buffs not yet active.
@@ -35513,10 +35518,11 @@ var startBlock = {
 
 /**
  * Farms unblemished pearls in a block at the end of garbo's farming, while its meat buffs are still active, fighting acorn sea cows where the acorndion can plant them.
+ * Runs only with the `pearlo` argument.
  */
 var PearlQuest = () => ({
   name: "Pearls",
-  ready: () => canBreatheUnderwater() && pearlBlockStarted(),
+  ready: () => globalOptions.pearlo && canBreatheUnderwater() && pearlBlockStarted(),
   completed: () => !canContinue(),
   tasks: [startBlock].concat(_toConsumableArray(hagglingTasks), _toConsumableArray(PearlTargets.flatMap(zoneTasks)))
 });
