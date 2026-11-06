@@ -1,14 +1,5 @@
+import { adv1, Location, myLocation } from "kolmafia";
 import {
-  adv1,
-  booleanModifier,
-  canEquip,
-  cliExecute,
-  Location,
-  myLocation,
-  use,
-} from "kolmafia";
-import {
-  $effect,
   $familiar,
   $item,
   $location,
@@ -23,10 +14,10 @@ import {
 import { DraggableFight } from "garbo-lib";
 import { OutfitSpec } from "grimoire-kolmafia";
 
-import { waterBreathingEquipment } from "../outfit/lib";
+import { canBreatheUnderwater } from "../outfit/lib";
 import { Macro } from "../combat";
 import { globalOptions } from "../config";
-import { freeFishyAvailable } from "../lib";
+import { freeFishyAvailable, getFreeFishy } from "../lib";
 import { willYachtzee } from "../resources/yachtzee";
 import { FarmingStrategy } from "../farmingStrategy";
 
@@ -61,27 +52,11 @@ export function checkUnderwater(): boolean {
     getStep("questS01OldGuy") >= QuestState.STARTED &&
     !(get("_envyfishEggUsed") || have($item`envyfish egg`)) &&
     (get("_garbo_weightChain", false) || !have($familiar`Pocket Professor`)) &&
-    (booleanModifier("Adventure Underwater") ||
-      waterBreathingEquipment.some((item) => have(item) && canEquip(item))) &&
+    canBreatheUnderwater() &&
     freeFishyAvailable() &&
     (!willYachtzee() || FarmingStrategy.isUnderwater())
   ) {
-    if (
-      !have($effect`Fishy`) &&
-      have($item`fishy pipe`) &&
-      !get("_fishyPipeUsed")
-    ) {
-      use($item`fishy pipe`);
-    }
-    if (
-      !have($effect`Fishy`) &&
-      get("skateParkStatus") === "ice" &&
-      !get("_skateBuff1")
-    ) {
-      cliExecute("skate lutz");
-    }
-
-    return have($effect`Fishy`);
+    return getFreeFishy();
   }
 
   return false;

@@ -476,6 +476,7 @@ export class WandererManager {
               ? 1
               : 2,
           305: 2, // Skip globes of deep sauce
+          1220: 2, // Skip Into the Abyss
         };
       },
     ],

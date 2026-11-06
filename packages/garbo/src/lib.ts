@@ -3,6 +3,7 @@ import {
   cliExecute,
   Effect,
   effectModifier,
+  equippedItem,
   Familiar,
   familiarWeight,
   fileToBuffer,
@@ -18,12 +19,14 @@ import {
   Item,
   itemAmount,
   itemDropsArray,
+  itemType,
   Location,
   meatDrop,
   meatDropModifier,
   Monster,
   mpCost,
   myBjornedFamiliar,
+  myBuffedstat,
   myEnthronedFamiliar,
   myFamiliar,
   myFullness,
@@ -59,6 +62,8 @@ import {
   $location,
   $monster,
   $skill,
+  $slot,
+  $stat,
   $thralls,
   ActionSource,
   bestLibramToCast,
@@ -942,13 +947,7 @@ export function willDrunkAdventure() {
   return have($item`Drunkula's wineglass`) && globalOptions.ascend;
 }
 
-export function freeFishyAvailable(): boolean {
-  return (
-    have($effect`Fishy`) ||
-    (have($item`fishy pipe`) && !get("_fishyPipeUsed")) ||
-    (get("skateParkStatus") === "ice" && !get("_skateBuff1"))
-  );
-}
+export const freeFishyAvailable = () => freeFishyTurns() > 0;
 
 /**
  * @returns Fishy turns available without spending anything: the current effect, the fishy pipe and a lutz at the icy Skate Park
@@ -973,6 +972,18 @@ export function getFreeFishy(): boolean {
     if (!get("_skateBuff1")) cliExecute("skate lutz");
   }
   return have($effect`Fishy`);
+}
+
+/**
+ * @returns Whether the monster's attack comes within 10 of the Moxie that dodges it, or of the Muscle that blocks it with Hero of the Half-Shell and a shield
+ */
+export function needsDelevel(monster: Monster): boolean {
+  return (
+    myBuffedstat($stat`Moxie`) < monster.baseAttack + 10 ||
+    (have($skill`Hero of the Half-Shell`) &&
+      itemType(equippedItem($slot`offhand`)) === "shield" &&
+      myBuffedstat($stat`Muscle`) < monster.baseAttack + 10)
+  );
 }
 
 export const ULTRA_RARE_MONSTERS = Monster.all().filter((m) =>

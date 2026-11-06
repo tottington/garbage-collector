@@ -22,5 +22,5 @@ export type { WandererFactory } from "./wanderer/lib";
 export type { ValueFunctions, WanderOptions, DraggableFight, WanderDetails };
 export { makeKnuckleboneValue } from "./knucklebones";
 export * from "./resources";
-export { PearlTargets } from "./wanderer/pearl";
+export { pearlFightsLeft, pearlProgress, PearlTargets } from "./wanderer/pearl";
 export type { PearlTarget } from "./wanderer/pearl";
