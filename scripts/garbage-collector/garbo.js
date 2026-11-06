@@ -19417,13 +19417,22 @@ var PearlTargets = [
 
   return get("valueOfAdventure", 4000) * (turns(resistance) - turns(resistance + 1));
 } */
-function turnsRemainingToComplete(progressPref, estimatedProgress) {
-  var progressRemaining = 100 - get$2(progressPref, 0);
-  return Math.ceil(progressRemaining / estimatedProgress);
-}
+/**
+ * @param resistance The zone element's resistance worn in the fight
+ * @returns The pearl progress a won fight makes: 1.7% per 3 points of resistance, from 1.7% up to 10% at 18
+ */
+var pearlProgress = resistance => clamp(1.7 * Math.floor(resistance / 3), 1.7, 10);
+/**
+ * @param progress The pearl progress each fight makes
+ * @returns The fights left to finish the zone's pearl
+ */
+var pearlFightsLeft = function pearlFightsLeft(target) {
+  var progress = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : target.estimatedProgress;
+  return Math.ceil((100 - get$2(target.progressPref)) / progress);
+};
 function pearlFactory(type, _locationSkiplist, options) {
   if (have$T($effect`Fishy`) && type !== "freerun") {
-    return PearlTargets.filter(t => !get$2(t.completionPref) && wandererTurnsAvailableToday(options, t.location, true) >= turnsRemainingToComplete(t.progressPref, t.estimatedProgress)).map(t => new WandererTarget({
+    return PearlTargets.filter(t => !get$2(t.completionPref) && wandererTurnsAvailableToday(options, t.location, true) >= pearlFightsLeft(t)).map(t => new WandererTarget({
       name: `${t.location} Pearl`,
       location: t.location,
       zoneValue: options.itemValue($item`unblemished pearl`) * (t.estimatedProgress / 100)
@@ -19767,7 +19776,9 @@ var WandererManager = /*#__PURE__*/function () {
     }], [$location`The Marinara Trench`, (options, valueOfTurn) => {
       return {
         304: options.itemValue($item`bubbling tempura batter`) > valueOfTurn ? 1 : 2,
-        305: 2 // Skip globes of deep sauce
+        305: 2,
+        // Skip globes of deep sauce
+        1220: 2 // Skip Into the Abyss
       };
     }]]));
     _defineProperty(this, "equipment", new Map([].concat(_toConsumableArray(kolmafia.Location.all().filter(l => l.zone === "The 8-Bit Realm").map(l => [l, $items`continuum transfunctioner`])), [[$location`Shadow Rift (The 8-Bit Realm)`, $items`continuum transfunctioner`]])));
@@ -20844,9 +20855,7 @@ function improvesAStat(thing) {
 function willDrunkAdventure() {
   return have$T($item`Drunkula's wineglass`) && globalOptions.ascend;
 }
-function freeFishyAvailable() {
-  return have$T($effect`Fishy`) || have$T($item`fishy pipe`) && !get$2("_fishyPipeUsed") || get$2("skateParkStatus") === "ice" && !get$2("_skateBuff1");
-}
+var freeFishyAvailable = () => freeFishyTurns() > 0;
 
 /**
  * @returns Fishy turns available without spending anything: the current effect, the fishy pipe and a lutz at the icy Skate Park
@@ -20867,6 +20876,13 @@ function getFreeFishy() {
     if (!get$2("_skateBuff1")) kolmafia.cliExecute("skate lutz");
   }
   return have$T($effect`Fishy`);
+}
+
+/**
+ * @returns Whether the monster's attack comes within 10 of the Moxie that dodges it, or of the Muscle that blocks it with Hero of the Half-Shell and a shield
+ */
+function needsDelevel(monster) {
+  return kolmafia.myBuffedstat($stat`Moxie`) < monster.baseAttack + 10 || have$T($skill`Hero of the Half-Shell`) && kolmafia.itemType(kolmafia.equippedItem($slot`offhand`)) === "shield" && kolmafia.myBuffedstat($stat`Muscle`) < monster.baseAttack + 10;
 }
 var ULTRA_RARE_MONSTERS = kolmafia.Monster.all().filter(m => m.attributes.includes("ULTRARARE"));
 
@@ -21187,7 +21203,7 @@ var THE_CORAL_CORRAL = {
   outfit: underwaterOutfit,
   combat: _ref6 => {
     var banish = _ref6.banish;
-    return Macro.externalIf(!get$2("seahorseName"), Macro.if_($monster`wild seahorse`, Macro.item($item`sea cowbell`).item($item`sea cowbell`).item($item`sea cowbell`).item($item`sea lasso`).abortWithMsg("Wild seahorse should have been tamed, what happened?"))).farmingBanish(banish).externalIf(kolmafia.myBuffedstat($stat`Moxie`) < $monster`sea cow`.baseAttack + 10 || have$T($skill`Hero of the Half-Shell`) && kolmafia.itemType(kolmafia.equippedItem($slot`offhand`)) === "shield" && kolmafia.myBuffedstat($stat`Muscle`) < $monster`sea cow`.baseAttack + 10, Macro.delevel()).externalIf(redTaffyWorth(), Macro.tryItem($item`pulled red taffy`)).meatKill();
+    return Macro.externalIf(!get$2("seahorseName"), Macro.if_($monster`wild seahorse`, Macro.item($item`sea cowbell`).item($item`sea cowbell`).item($item`sea cowbell`).item($item`sea lasso`).abortWithMsg("Wild seahorse should have been tamed, what happened?"))).farmingBanish(banish).externalIf(needsDelevel($monster`sea cow`), Macro.delevel()).externalIf(redTaffyWorth(), Macro.tryItem($item`pulled red taffy`)).meatKill();
   }
 };
 var THE_MARINARA_TRENCH = {
@@ -21203,7 +21219,7 @@ var THE_MARINARA_TRENCH = {
   outfit: underwaterOutfit,
   combat: _ref7 => {
     var banish = _ref7.banish;
-    return Macro.farmingBanish(banish).externalIf(kolmafia.myBuffedstat($stat`Moxie`) < $monster`giant squid`.baseAttack + 10 || have$T($skill`Hero of the Half-Shell`) && kolmafia.itemType(kolmafia.equippedItem($slot`offhand`)) === "shield" && kolmafia.myBuffedstat($stat`Muscle`) < $monster`giant squid`.baseAttack + 10, Macro.delevel()).externalIf(redTaffyWorth(), Macro.tryItem($item`pulled red taffy`)).meatKill();
+    return Macro.farmingBanish(banish).externalIf(needsDelevel($monster`giant squid`), Macro.delevel()).externalIf(redTaffyWorth(), Macro.tryItem($item`pulled red taffy`)).meatKill();
   }
 };
 var cachedStrategy;
@@ -21965,6 +21981,11 @@ function useUPCsIfNeeded(_ref) {
 }
 var waterBreathingEquipment = $items`The Crown of Ed the Undying, aerated diving helmet, crappy Mer-kin mask, Mer-kin gladiator mask, Mer-kin scholar mask, old SCUBA tank`;
 var familiarWaterBreathingEquipment = $items`das boot, little bitty bathysphere`;
+
+/**
+ * @returns Whether the character breathes underwater now or owns gear that lets them
+ */
+var canBreatheUnderwater = () => kolmafia.booleanModifier("Adventure Underwater") || waterBreathingEquipment.some(item => have$T(item) && kolmafia.canEquip(item));
 function familiarSlotNeededForBreathing(location, familiar) {
   return location.environment === "underwater" && !familiarCanBreathe(familiar);
 }
@@ -24436,14 +24457,8 @@ var nextWeekFights = () => clubIntoNextWeekAvailable() + (clubIntoNextWeekMonste
 
 function checkUnderwater() {
   // first check to see if underwater even makes sense
-  if (getStep("questS01OldGuy") >= QuestState.STARTED && !(get$2("_envyfishEggUsed") || have$T($item`envyfish egg`)) && (get$2("_garbo_weightChain", false) || !have$T($familiar`Pocket Professor`)) && (kolmafia.booleanModifier("Adventure Underwater") || waterBreathingEquipment.some(item => have$T(item) && kolmafia.canEquip(item))) && freeFishyAvailable() && (!willYachtzee() || FarmingStrategy.isUnderwater())) {
-    if (!have$T($effect`Fishy`) && have$T($item`fishy pipe`) && !get$2("_fishyPipeUsed")) {
-      kolmafia.use($item`fishy pipe`);
-    }
-    if (!have$T($effect`Fishy`) && get$2("skateParkStatus") === "ice" && !get$2("_skateBuff1")) {
-      kolmafia.cliExecute("skate lutz");
-    }
-    return have$T($effect`Fishy`);
+  if (getStep("questS01OldGuy") >= QuestState.STARTED && !(get$2("_envyfishEggUsed") || have$T($item`envyfish egg`)) && (get$2("_garbo_weightChain", false) || !have$T($familiar`Pocket Professor`)) && canBreatheUnderwater() && freeFishyAvailable() && (!willYachtzee() || FarmingStrategy.isUnderwater())) {
+    return getFreeFishy();
   }
   return false;
 }
@@ -24972,7 +24987,11 @@ function safeRestoreMpTarget() {
   }
   return Math.min(kolmafia.myMaxmp(), 200);
 }
-function safeRestore() {
+
+/**
+ * @param location The location of the coming fight, for its underwater HP threshold
+ */
+function safeRestore(location) {
   if (kolmafia.lastMonster() === $monster`Sssshhsssblllrrggghsssssggggrrgglsssshhssslblgl`) {
     if (have$T($effect`Beaten Up`)) uneffect($effect`Beaten Up`);
   } else if (get$2("_lastCombatLost")) {
@@ -24981,7 +25000,7 @@ function safeRestore() {
   } else if (have$T($effect`Beaten Up`)) {
     throw new Error("Hey, you're beaten up, and that's a bad thing. Lick your wounds, handle your problems, and run me again when you feel ready.");
   }
-  var lowPercentageHealth = FarmingStrategy.isUnderwater() ? kolmafia.myInebriety() > kolmafia.inebrietyLimit() ? 0.9 : 0.6 : 0.5;
+  var lowPercentageHealth = FarmingStrategy.isUnderwater() || (location === null || location === void 0 ? void 0 : location.environment) === "underwater" ? kolmafia.myInebriety() > kolmafia.inebrietyLimit() ? 0.9 : 0.6 : 0.5;
   if (kolmafia.myHp() < Math.min(kolmafia.myMaxhp() * lowPercentageHealth, get$2("garbo_restoreHpTarget", 2000))) {
     kolmafia.restoreHp(Math.min(kolmafia.myMaxhp() * 0.9, get$2("garbo_restoreHpTarget", 2000)));
   }
@@ -28290,7 +28309,9 @@ var BaseGarboContextEngine = /*#__PURE__*/function (_ContextualEngine) {
   }, {
     key: "prepare",
     value: function prepare(task) {
-      if ("combat" in task) safeRestore();
+      if ("combat" in task) {
+        safeRestore(task.do instanceof kolmafia.Location ? task.do : undefined);
+      }
       _superPropGet(BaseGarboContextEngine, "prepare", this, 3)([task]);
     }
   }, {
@@ -28580,7 +28601,7 @@ function mimicEscape() {
   return tryFindFreeRunOrBanish(constraints) ?? undefined;
 }
 function shouldDelevel(monster) {
-  return monster.attributes.includes("Scale:") || kolmafia.myBuffedstat($stat`Moxie`) < monster.baseAttack + 10 || have$T($skill`Hero of the Half-Shell`) && kolmafia.itemType(kolmafia.equippedItem($slot`offhand`)) === "shield" && kolmafia.myBuffedstat($stat`Muscle`) < monster.baseAttack + 10;
+  return monster.attributes.includes("Scale:") || needsDelevel(monster);
 }
 function monsterRequirements(monster) {
   var maximize = ["-100 Thorns", "-100 Sporadic Thorns", "-100 Damage Aura", "-100 Sporadic Damage Aura"];
@@ -34253,32 +34274,39 @@ var updateParachuteFailure = () => lastParachuteFailure = kolmafia.totalTurnsPla
 
 /**
  * Acorns planted by the legendary acorndion's underwater skills: Juvenile Refrain (R) brings sea cows, Chiasso de los Muertos (B) banishes the monster it hits and Line of Zydeco (Z) lowers the zone's pressure.
- * Acorns last past rollover, so planted sites are kept per ascension in `garboAcornSites` as `<ascension>|<location id>:<kinds>[=<banished monster id>],...`.
+ * Acorns last past rollover, so planted sites are kept per ascension in `garbo_acornSites` as `<ascension>|<location id>:<kinds>[=<banished monster id>],...`.
  */
 
-var SITES_PREF = "garboAcornSites";
+var SITES_PREF = "garbo_acornSites";
 // Holds the ascension in which a banished native showed up again, which means acorn sea cows ran out
-var COWS_GONE_PREF = "_garboAcornCowsGone";
+var COWS_GONE_PREF = "_garbo_acornCowsGone";
+var ACORN_SKILLS = {
+  R: {
+    thief: $skill`Bawdy Refrain`,
+    other: $skill`Juvenile Refrain`
+  },
+  B: {
+    thief: $skill`Concerto de los Muertos`,
+    other: $skill`Chiasso de los Muertos`
+  },
+  Z: {
+    thief: $skill`Cone of Zydeco`,
+    other: $skill`Line of Zydeco`
+  }
+};
+var isAcornKind = kind => kind in ACORN_SKILLS;
 var acorndion = () => $item`legendary acorndion`;
 var haveAcorndion = () => have$T(acorndion());
 
 /**
  * @returns The skill that plants the acorn: an Accordion Thief's own song, or the lesser one the acorndion grants other classes
  */
-var acornSkill = kind => kolmafia.myClass() === $class`Accordion Thief` ? {
-  R: $skill`Bawdy Refrain`,
-  B: $skill`Concerto de los Muertos`,
-  Z: $skill`Cone of Zydeco`
-}[kind] : {
-  R: $skill`Juvenile Refrain`,
-  B: $skill`Chiasso de los Muertos`,
-  Z: $skill`Line of Zydeco`
-}[kind];
+var acornSkill = kind => kolmafia.myClass() === $class`Accordion Thief` ? ACORN_SKILLS[kind].thief : ACORN_SKILLS[kind].other;
 
 /**
  * @returns The acorns' skill names, for printing
  */
-var acornNames = kinds => _toConsumableArray(kinds).map(kind => acornSkill(kind).name).join(", ") || "none";
+var acornNames = kinds => kinds.map(kind => acornSkill(kind).name).join(", ") || "none";
 
 /**
  * @returns The acorns the acorndion generated today, read from its description, or null if the page didn't say
@@ -34319,7 +34347,7 @@ function readSites() {
         kinds = _rest$split2[0],
         banished = _rest$split2[1];
       sites.set(kolmafia.toLocation(Number(location)), {
-        kinds,
+        kinds: _toConsumableArray(kinds).filter(isAcornKind),
         banished: banished ? kolmafia.toMonster(Number(banished)) : null
       });
     }
@@ -34336,38 +34364,27 @@ function readSites() {
  */
 function acornSite(location) {
   return readSites().get(location) ?? {
-    kinds: "",
+    kinds: [],
     banished: null
   };
 }
 function recordAcorns(location, kinds, banished) {
   var sites = readSites();
   var site = sites.get(location) ?? {
-    kinds: "",
+    kinds: [],
     banished: null
   };
   sites.set(location, {
-    kinds: _toConsumableArray(new Set(site.kinds + kinds)).join(""),
+    kinds: _toConsumableArray(new Set([].concat(_toConsumableArray(site.kinds), _toConsumableArray(kinds)))),
     banished: banished ?? site.banished
   });
   var body = _toConsumableArray(sites.entries()).map(_ref => {
     var _ref2 = _slicedToArray(_ref, 2),
       l = _ref2[0],
       s = _ref2[1];
-    return `${l.id}:${s.kinds}${s.banished ? `=${s.banished.id}` : ""}`;
+    return `${l.id}:${s.kinds.join("")}${s.banished ? `=${s.banished.id}` : ""}`;
   }).join(",");
   _set(SITES_PREF, `${kolmafia.myAscensions()}|${body}`);
-}
-
-/**
- * Wield the acorndion, through KoL's equip page when mafia won't equip it for this class.
- * @returns Whether the acorndion is wielded
- */
-function equipAcorndion() {
-  var item = acorndion();
-  if (kolmafia.equippedItem($slot`weapon`) === item) return true;
-  if (kolmafia.canEquip(item)) kolmafia.equip($slot`weapon`, item);else kolmafia.visitUrl(`inv_equip.php?pwd&which=2&action=equip&whichitem=${item.id}`);
-  return kolmafia.equippedItem($slot`weapon`) === item;
 }
 
 /**
@@ -34380,12 +34397,12 @@ function recordPlanting(location, kinds, before) {
   var after = acornsGeneratedToday();
   var actions = get$2("_lastCombatActions");
   var monster = kolmafia.toMonster(get$2("lastEncounter"));
-  var cast = _toConsumableArray(kinds).filter(kind => actions.includes(`sk${acornSkill(kind).id};`));
-  var planted = before === null || after === null ? "" : cast.slice(0, Math.max(0, after - before)).join("");
-  if (planted) {
+  var cast = kinds.filter(kind => actions.includes(`sk${acornSkill(kind).id};`));
+  var planted = before === null || after === null ? [] : cast.slice(0, Math.max(0, after - before));
+  if (planted.length) {
     recordAcorns(location, planted, planted.includes("B") ? monster : null);
   }
-  kolmafia.print(`Acorns in ${location}: cast ${acornNames(cast.join(""))}, planted ${acornNames(planted)} (count ${before ?? "unknown"} to ${after ?? "unknown"}) fighting ${monster}.`, HIGHLIGHT);
+  kolmafia.print(`Acorns in ${location}: cast ${acornNames(cast)}, planted ${acornNames(planted)} (count ${before ?? "unknown"} to ${after ?? "unknown"}) fighting ${monster}.`);
 }
 
 /**
@@ -34411,41 +34428,36 @@ function observeAcornFight(location) {
 }
 
 // In acorn priority order. Chiasso targets the native whose loss costs least or whose fights hurt most.
-var ZONES = {
-  "Madness Reef": {
-    chiasso: "magic dragonfish",
-    pressure: -100,
-    luckyHazard: true
-  },
-  "The Dive Bar": {
-    chiasso: "Mer-kin tippler",
-    pressure: -200,
-    luckyHazard: true,
-    zydeco: true
-  },
-  "Anemone Mine": {
-    chiasso: "Anemone combatant",
-    pressure: -200,
-    zydeco: true
-  },
-  "The Marinara Trench": {
-    chiasso: "diving belle",
-    pressure: -200,
-    zydeco: true,
-    choices: {
-      1220: 2
-    }
-  },
-  "The Briniest Deepests": {
-    chiasso: "acoustic electric eel",
-    pressure: -75
-  }
-};
-var info = location => ZONES[location.toString()];
-var chiassoTarget = location => kolmafia.toMonster(info(location).chiasso);
+var ZONES = new Map([[$location`Madness Reef`, {
+  chiasso: $monster`magic dragonfish`,
+  pressure: -100,
+  luckyHazard: true
+}], [$location`The Dive Bar`, {
+  chiasso: $monster`Mer-kin tippler`,
+  pressure: -200,
+  luckyHazard: true,
+  zydeco: true
+}], [$location`Anemone Mine`, {
+  chiasso: $monster`Anemone combatant`,
+  pressure: -200,
+  zydeco: true
+}], [$location`The Marinara Trench`, {
+  chiasso: $monster`diving belle`,
+  pressure: -200,
+  zydeco: true
+}], [$location`The Briniest Deepests`, {
+  chiasso: $monster`acoustic electric eel`,
+  pressure: -75
+}]]);
+var info = location => ZONES.get(location);
+var chiassoTarget = location => info(location).chiasso;
 var luckyHazard = location => info(location).luckyHazard ?? false;
-var zoneChoices = location => info(location).choices ?? {};
 var avoidedPearlGear = () => $items`Mer-kin digpick, broken champagne bottle, Peridot of Peril`;
+
+/**
+ * @returns The maximizer term that holds the zone's resistance at the tier
+ */
+var resistanceModifier = (target, resistance) => `1000 ${target.maximizeElement} Resistance ${resistance} max`;
 var PARKA_MODES = {
   cold: "kachungasaur",
   hot: "pterodactyl",
@@ -34473,34 +34485,50 @@ var moxieMargin = function moxieMargin(location) {
   var kinds = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : acornSite(location).kinds;
   return kolmafia.myBuffedstat($stat`Moxie`) - Math.max.apply(Math, _toConsumableArray(pearlMonsters(location, kinds).map(m => m.baseAttack))) - kolmafia.numericModifier("Monster Level");
 };
-
-// 1.7% per 3 points of the zone's resistance, from 1.7% up to 10% at 18
-var progressRate = resistance => clamp(1.7 * Math.floor(resistance / 3), 1.7, 10);
 var TIERS = [12, 15, 18];
 // A whole pearl at the lowest tier with no Fishy: 15 fights at 2 adventures each
 var WORST_ADVENTURES = 30;
 var resistanceBuffs = () => $effects`Elemental Saucesphere, Astral Shell`.filter(effect => have$T(effect) || have$T(kolmafia.toSkill(effect)));
-var pearlFightsLeft = (target, resistance) => Math.ceil((100 - get$2(target.progressPref, 0)) / progressRate(resistance));
+
+/**
+ * @returns The fights left for the zone's pearl at the resistance
+ */
+var fightsLeftAt = (target, resistance) => pearlFightsLeft(target, pearlProgress(resistance));
 
 /**
  * @returns The zones whose pearl is still to get this ascension, in acorn priority order
  */
 function openPearlZones() {
-  return Object.keys(ZONES).map(name => PearlTargets.find(t => t.location.toString() === name)).filter(target => !!target && !get$2(target.completionPref) && kolmafia.canAdventure(target.location));
+  return _toConsumableArray(ZONES.keys()).map(location => PearlTargets.find(t => t.location === location)).filter(target => !!target && !get$2(target.completionPref) && kolmafia.canAdventure(target.location));
 }
 
 /**
  * @returns The most adventures the open zones' pearls can cost, before probing any outfit
  */
-var worstPearlAdventures = () => sum(openPearlZones(), () => Math.ceil(1.15 * WORST_ADVENTURES) + 1) + 3;
-var reservedTurns = () => 0;
+function worstPearlAdventures() {
+  var zones = openPearlZones();
+  return zones.length ? sum(zones, () => Math.ceil(1.15 * WORST_ADVENTURES) + 1) + 3 : 0;
+}
+/**
+ * @returns The adventures the farmed zones need, with room for adventures lost to noncombats and wanderers
+ */
+function pearlReserve(zones) {
+  var farmed = zones.filter(zone => zone.farm);
+  return farmed.length ? sum(farmed, zone => Math.ceil(1.15 * zone.adventures) + (zone.plant.length ? 1 : 0)) + 3 : 0;
+}
+var block = null;
+/**
+ * @returns The pearl block's plan once garbo has decided it, empty when there was nothing to plan
+ */
+var pearlBlock = () => block;
+function setPearlBlock(zones) {
+  block = zones;
+}
+
 /**
  * @returns The adventures held back at the end of garbo's farming for the pearl block
  */
-var pearlTurnsReserved = () => reservedTurns();
-function setPearlTurnsReserved(turns) {
-  reservedTurns = turns;
-}
+var pearlTurnsReserved = () => block ? pearlReserve(block) : !sober() || !canBreatheUnderwater() ? 0 : worstPearlAdventures();
 var probes = new Map();
 /**
  * Simulate the maximizer at each resistance tier, counting the free resistance buffs not yet active.
@@ -34509,11 +34537,10 @@ var probes = new Map();
 function tierProbe(target) {
   var cached = probes.get(target.location);
   if (cached) return cached;
-  kolmafia.setLocation(target.location);
   var modifier = `${target.maximizeElement} Resistance`;
   var pending = sum(resistanceBuffs().filter(effect => !have$T(effect)), effect => kolmafia.numericModifier(effect, modifier));
-  var tiers = TIERS.flatMap(resistance => {
-    var spec = ["Meat Drop", `1000 ${modifier} ${resistance - pending} max`, "+sea", "-tie"].concat(_toConsumableArray(avoidedPearlGear().map(item => `-equip ${item}`)));
+  var tiers = withLocation(target.location, () => TIERS.flatMap(resistance => {
+    var spec = ["Meat Drop", resistanceModifier(target, resistance - pending), "+sea", "-tie"].concat(_toConsumableArray(avoidedPearlGear().map(item => `-equip ${item}`)));
     var reached = kolmafia.maximize(spec.join(", "), 0, 0, true, false) && kolmafia.numericModifier("Generated:_spec", modifier) + pending >= resistance;
     var meat = kolmafia.numericModifier("Generated:_spec", "Meat Drop");
     var item = kolmafia.numericModifier("Generated:_spec", "Item Drop");
@@ -34522,7 +34549,7 @@ function tierProbe(target) {
       meat,
       item
     }] : [];
-  });
+  }));
   probes.set(target.location, tiers);
   return tiers;
 }
@@ -34539,7 +34566,7 @@ var pearlDropValue = (monster, multiplier) => sum(kolmafia.itemDropsArray(monste
   var drop = _ref.drop,
     rate = _ref.rate,
     type = _ref.type;
-  return Math.min(1, rate / 100 * (type === "0" ? 1 : multiplier)) * garboValue(drop);
+  return clamp(rate / 100 * (type === "0" ? 1 : multiplier), 0, 1) * garboValue(drop);
 });
 
 /**
@@ -34563,9 +34590,9 @@ function planPearls(acorns, fishy) {
   var zones = openPearlZones().map(target => {
     var tiers = tierProbe(target);
     var site = acornSite(target.location);
-    var plant = site.kinds || noPlant.has(target.location) ? "" : acorns >= 2 ? "BR" : acorns === 1 ? "R" : "";
-    if (moxieMargin(target.location, site.kinds + plant) < 10) {
-      plant = plant.replace("R", "");
+    var plant = site.kinds.length || noPlant.has(target.location) ? [] : acorns >= 2 ? ["B", "R"] : acorns === 1 ? ["R"] : [];
+    if (moxieMargin(target.location, [].concat(_toConsumableArray(site.kinds), _toConsumableArray(plant))) < 10) {
+      plant = plant.filter(kind => kind !== "R");
     }
     var fightValue = (t, kinds) => {
       var zydeco = kinds.includes("Z") ? 30 : 0;
@@ -34579,8 +34606,8 @@ function planPearls(acorns, fishy) {
       return share * (300 * multiplier + pearlDropValue(cow, itemMultiplier)) + (1 - share) * nativeValue;
     };
     var top = tiers[tiers.length - 1];
-    if (plant && (!top || fightValue(top, plant) <= fightValue(top, site.kinds))) {
-      plant = "";
+    if (plant.length && (!top || fightValue(top, plant) <= fightValue(top, site.kinds))) {
+      plant = [];
     }
     acorns -= plant.length;
     return {
@@ -34596,8 +34623,8 @@ function planPearls(acorns, fishy) {
   try {
     for (_iterator.s(); !(_step = _iterator.n()).done;) {
       var zone = _step.value;
-      if (zone.plant && info(zone.target.location).zydeco && acorns > 0) {
-        zone.plant += "Z";
+      if (zone.plant.length && info(zone.target.location).zydeco && acorns > 0) {
+        zone.plant.push("Z");
         acorns--;
       }
     }
@@ -34606,7 +34633,7 @@ function planPearls(acorns, fishy) {
   } finally {
     _iterator.f();
   }
-  var fightsAtTop = z => z.tiers.length ? pearlFightsLeft(z.target, z.tiers[z.tiers.length - 1].resistance) : Infinity;
+  var fightsAtTop = z => z.tiers.length ? fightsLeftAt(z.target, z.tiers[z.tiers.length - 1].resistance) : Infinity;
   var unused = [];
   var plans = zones.sort((a, b) => fightsAtTop(a) - fightsAtTop(b)).map(_ref2 => {
     var target = _ref2.target,
@@ -34614,11 +34641,11 @@ function planPearls(acorns, fishy) {
       site = _ref2.site,
       plant = _ref2.plant,
       fightValue = _ref2.fightValue;
-    var kinds = site.kinds + plant;
+    var kinds = [].concat(_toConsumableArray(site.kinds), _toConsumableArray(plant));
     var options = tiers.map(t => {
-      var fights = pearlFightsLeft(target, t.resistance);
+      var fights = fightsLeftAt(target, t.resistance);
       var adventures = fights + Math.max(0, fights - fishy);
-      var net = pearl - adventures * voa + fights * fightValue(t, kinds) - (plant ? 0.1 * voa : 0);
+      var net = pearl - adventures * voa + fights * fightValue(t, kinds) - (plant.length ? 0.1 * voa : 0);
       return {
         resistance: t.resistance,
         fights,
@@ -34633,12 +34660,12 @@ function planPearls(acorns, fishy) {
       net: -Infinity
     });
     var farm = best.net > 0 && moxieMargin(target.location, kinds) >= 0;
-    if (farm) fishy = Math.max(0, fishy - best.fights);else if (plant) unused.push(target.location);
-    var summary = `Pearl plan for ${target.location}: ${options.map(o => `${o.resistance} res, ${o.fights} fights, net ${Math.round(o.net)}`).join("; ") || "no tier reaches 12 resistance"}. ${farm ? `Farming at ${best.resistance} res over ${best.adventures} adventures` : "Skipping"}; acorns ${acornNames(site.kinds)}${farm && plant ? `, planting ${acornNames(plant)}` : ""}.`;
+    if (farm) fishy = Math.max(0, fishy - best.fights);else if (plant.length) unused.push(target.location);
+    var summary = `Pearl plan for ${target.location}: ${options.map(o => `${o.resistance} res, ${o.fights} fights, net ${Math.round(o.net)}`).join("; ") || "no tier reaches 12 resistance"}. ${farm ? `Farming at ${best.resistance} res over ${best.adventures} adventures` : "Skipping"}; acorns ${acornNames(site.kinds)}${farm && plant.length ? `, planting ${acornNames(plant)}` : ""}.`;
     return _objectSpread2(_objectSpread2({
       target
     }, best), {}, {
-      plant: farm ? plant : "",
+      plant: farm ? plant : [],
       farm,
       summary
     });
@@ -35179,69 +35206,51 @@ var NonBarfTurnQuest = {
 };
 
 // Holds the ascension whose pearl block has started, so the block keeps going as its reserve shrinks
-var BLOCK_PREF = "_garboPearlBlock";
-var PLANT_FAILED_PREF = "_garboPearlPlantFailed";
+var BLOCK_PREF = "_garbo_pearlBlock";
+var PLANT_FAILED_PREF = "_garbo_pearlPlantFailed";
 var PLANT_ATTEMPTS = 3;
-var plan = null;
-var decided = false;
 var checkedAt = null;
 var acornsLeft = null;
-var reported = false;
-var hagglingFailed = false;
+var announced = false;
 var started = new Set();
 var plantAttempts = new Map();
 // Resistance worn in a zone's last pearl fight, when it fell short of the plan
 var wornResistance = new Map();
-var budget = () => kolmafia.myAdventures() - globalOptions.saveTurns;
-// The budget left after the non-barf turns garbo will still take ahead of the pearl tasks
-var blockBudget = () => budget() - nonBarfTurns();
+
+// The adventures garbo will still spend, stopping at saveTurns or at the turn count it was given
+var budget = () => Math.min(kolmafia.myAdventures() - globalOptions.saveTurns, globalOptions.stopTurncount === null ? Infinity : globalOptions.stopTurncount - kolmafia.myTurncount());
+// The budget left after the non-barf turns and copied wanderers garbo will still take ahead of the pearl tasks
+var blockBudget = () => budget() - nonBarfTurns() - wanderingCopytargetsRemaining();
 // An underwater adventure costs 2 without Fishy
 var fightCost = () => freeFishyTurns() > 0 ? 1 : 2;
 var plantingAllowed = () => haveAcorndion() && !get$2(PLANT_FAILED_PREF, false);
-var canBreatheUnderwater = () => get$1("Adventure Underwater") || waterBreathingEquipment.some(item => have$T(item) && kolmafia.canEquip(item));
-var reserve = zones => sum(zones.filter(zone => zone.farm), zone => Math.ceil(1.15 * zone.adventures) + (zone.plant ? 1 : 0)) + 3;
 
 /**
- * Start the pearl block once the adventures left fall to what the farmed zones need.
+ * Decide the pearl block once the adventures left fall to what the farmed zones need.
  * Adventures above saveTurns never count more turns than garbo has left, so an error starts the block early.
- * @returns The block's zones once it has started
  */
-function blockPlan() {
-  if (plan) return plan;
+function decidePearlBlock() {
   var latched = get$2(BLOCK_PREF, 0) === kolmafia.myAscensions();
-  if (decided || !sober() || checkedAt === kolmafia.myAdventures()) return null;
-  if (!openPearlZones().length) {
-    decided = true;
-    return null;
-  }
-  if (!latched && blockBudget() > worstPearlAdventures()) return null;
+  if (!sober() || checkedAt === kolmafia.myAdventures()) return;
+  if (!openPearlZones().length) return setPearlBlock([]);
+  if (!latched && blockBudget() > worstPearlAdventures()) return;
   checkedAt = kolmafia.myAdventures();
   // Acorns are lost on ascension, so a run that ends by ascending plants none
   var acorns = acornsLeft ?? (acornsLeft = plantingAllowed() && !globalOptions.ascend ? acornsLeftToday() : 0);
   var zones = planPearls(acorns, freeFishyTurns());
   var farmed = zones.some(zone => zone.farm);
-  if (!latched && farmed && blockBudget() > reserve(zones)) return null;
-  decided = true;
-  var _iterator = _createForOfIteratorHelper(zones),
-    _step;
-  try {
-    for (_iterator.s(); !(_step = _iterator.n()).done;) {
-      var zone = _step.value;
-      kolmafia.print(zone.summary, HIGHLIGHT);
-    }
-  } catch (err) {
-    _iterator.e(err);
-  } finally {
-    _iterator.f();
-  }
-  kolmafia.print(`Pearl block: ${blockBudget()} adventures against a reserve of ${reserve(zones)}, ${acorns} acorns left today.`, HIGHLIGHT);
-  if (!farmed) return null;
-  _set(BLOCK_PREF, kolmafia.myAscensions());
-  trackMarginalMpa(0);
-  plan = zones;
-  return plan;
+  if (!latched && farmed && blockBudget() > pearlReserve(zones)) return;
+  setPearlBlock(zones);
 }
-setPearlTurnsReserved(() => plan ? reserve(plan) : decided || !sober() || !canBreatheUnderwater() ? 0 : worstPearlAdventures());
+
+/**
+ * @returns Whether garbo has planned the pearl block, deciding it when the time comes
+ */
+function pearlBlockStarted() {
+  var _pearlBlock;
+  if (!pearlBlock()) decidePearlBlock();
+  return !!((_pearlBlock = pearlBlock()) !== null && _pearlBlock !== void 0 && _pearlBlock.length);
+}
 var fightResistance = zone => wornResistance.get(zone.target.location) ?? zone.resistance;
 var zoneAdventures = fights => fights + Math.max(0, fights - freeFishyTurns());
 
@@ -35252,13 +35261,13 @@ var zoneAdventures = fights => fights + Math.max(0, fights - freeFishyTurns());
 function currentZone() {
   var _zones$find;
   var ignoreLucky = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
-  var zones = (blockPlan() ?? []).filter(_ref => {
+  var zones = (pearlBlock() ?? []).filter(_ref => {
     var farm = _ref.farm,
       target = _ref.target;
     return farm && !get$2(target.completionPref) && !(!ignoreLucky && luckyHazard(target.location) && have$T($effect`Lucky!`));
   }).map(zone => ({
     zone,
-    fights: pearlFightsLeft(zone.target, fightResistance(zone)),
+    fights: fightsLeftAt(zone.target, fightResistance(zone)),
     started: started.has(zone.target.location)
   })).sort((a, b) => Number(b.started) - Number(a.started) || a.fights - b.fights);
   if (!zones.length || budget() < fightCost()) return undefined;
@@ -35269,8 +35278,7 @@ function currentZone() {
     return started || (room ?? (room = blockBudget())) >= Math.ceil(1.1 * zoneAdventures(fights)) + 1;
   })) === null || _zones$find === void 0 ? void 0 : _zones$find.zone;
 }
-var resistanceModifier = zone => `1000 ${zone.target.maximizeElement} Resistance ${zone.resistance} max`;
-var acornMp = kinds => sum(_toConsumableArray(kinds), kind => kolmafia.mpCost(acornSkill(kind)));
+var acornMp = kinds => sum(kinds, kind => kolmafia.mpCost(acornSkill(kind)));
 
 /**
  * Pick a kill for the planting fight that never attacks: a free kill that leaves the weapon slot to the acorndion, or a damage spell whose three casts cover the zone's toughest monster.
@@ -35320,7 +35328,7 @@ function plantingKill(location, kinds) {
 function plantingMacro(location, kinds) {
   var _plantingKill;
   var cast = kind => Macro.if_("!hppercentbelow 50", Macro.trySkill(acornSkill(kind)));
-  return Macro.if_(pearlMonsters(location, "R"), Macro.externalIf(kinds.includes("B"), Macro.if_(chiassoTarget(location), cast("B"))).externalIf(kinds.includes("R"), cast("R")).externalIf(kinds.includes("Z"), cast("Z")).step(((_plantingKill = plantingKill(location, kinds)) === null || _plantingKill === void 0 ? void 0 : _plantingKill.macro) ?? new Macro()).runaway()).meatKill();
+  return Macro.if_(pearlMonsters(location, ["R"]), Macro.externalIf(kinds.includes("B"), Macro.if_(chiassoTarget(location), cast("B"))).externalIf(kinds.includes("R"), cast("R")).externalIf(kinds.includes("Z"), cast("Z")).step(((_plantingKill = plantingKill(location, kinds)) === null || _plantingKill === void 0 ? void 0 : _plantingKill.macro) ?? new Macro()).runaway()).meatKill();
 }
 var pearlStrategy = macro => new GarboStrategy(macro, macro, () => true, {
   innateWanderer: () => Macro.basicCombat()
@@ -35328,8 +35336,8 @@ var pearlStrategy = macro => new GarboStrategy(macro, macro, () => true, {
 function zoneTasks(target) {
   var location = target.location;
   var zone = () => {
-    var _plan;
-    return (_plan = plan) === null || _plan === void 0 ? void 0 : _plan.find(z => z.target === target);
+    var _pearlBlock2;
+    return (_pearlBlock2 = pearlBlock()) === null || _pearlBlock2 === void 0 ? void 0 : _pearlBlock2.find(z => z.target === target);
   };
   var isCurrent = () => {
     var _currentZone;
@@ -35337,29 +35345,27 @@ function zoneTasks(target) {
   };
   var toPlant = () => {
     var _zone;
-    return _toConsumableArray(((_zone = zone()) === null || _zone === void 0 ? void 0 : _zone.plant) ?? "").filter(kind => !acornSite(location).kinds.includes(kind)).join("");
+    return (((_zone = zone()) === null || _zone === void 0 ? void 0 : _zone.plant) ?? []).filter(kind => !acornSite(location).kinds.includes(kind));
   };
-  var planting = "";
+  var planting = [];
   var acornsBefore = null;
   var progressBefore = 0;
   var plant = {
     name: `Plant Acorns in ${location}`,
     ready: () => isCurrent() && plantingAllowed() && (plantAttempts.get(location) ?? 0) < PLANT_ATTEMPTS && plantingKill(location, toPlant()) !== null,
-    completed: () => get$2(target.completionPref) || !toPlant(),
+    completed: () => get$2(target.completionPref) || !toPlant().length,
     effects: resistanceBuffs,
     outfit: () => {
       var _plantingKill2;
-      return freeFightOutfit(_objectSpread2(_objectSpread2({
-        modifier: [resistanceModifier(zone())],
-        equip: [].concat(_toConsumableArray(toPlant().includes("B") && canImperil(location) ? $items`Peridot of Peril` : []), _toConsumableArray(((_plantingKill2 = plantingKill(location, toPlant())) === null || _plantingKill2 === void 0 || (_plantingKill2 = _plantingKill2.spec) === null || _plantingKill2 === void 0 ? void 0 : _plantingKill2.equip) ?? []))
-      }, kolmafia.canEquip(acorndion()) ? {
-        weapon: acorndion()
-      } : {}), {}, {
+      return freeFightOutfit({
+        modifier: [resistanceModifier(target, zone().resistance)],
+        equip: [].concat(_toConsumableArray(toPlant().includes("B") && canImperil(location) ? $items`Peridot of Peril` : []), _toConsumableArray(((_plantingKill2 = plantingKill(location, toPlant())) === null || _plantingKill2 === void 0 || (_plantingKill2 = _plantingKill2.spec) === null || _plantingKill2 === void 0 ? void 0 : _plantingKill2.equip) ?? [])),
+        weapon: acorndion(),
         modes: {
           parka: parkaMode(target.maximizeElement)
         },
-        avoid: $items`Mer-kin digpick, broken champagne bottle`
-      }), location);
+        avoid: avoidedPearlGear().filter(item => item !== $item`Peridot of Peril`)
+      }, location);
     },
     prepare: () => {
       var _plantingKill3;
@@ -35369,16 +35375,10 @@ function zoneTasks(target) {
       planting = toPlant();
       kolmafia.restoreHp(0.9 * kolmafia.myMaxhp());
       kolmafia.restoreMp(Math.min(kolmafia.myMaxmp(), acornMp(planting) + (((_plantingKill3 = plantingKill(location, planting)) === null || _plantingKill3 === void 0 ? void 0 : _plantingKill3.mp) ?? 0)));
-      if (!equipAcorndion()) {
-        kolmafia.print("Couldn't wield the legendary acorndion; no acorn planting today.", "red");
-        _set(PLANT_FAILED_PREF, true);
-        planting = "";
-      }
       acornsBefore = acornsGeneratedToday();
-      progressBefore = get$2(target.progressPref, 0);
+      progressBefore = get$2(target.progressPref);
     },
     do: () => {
-      if (!planting) return;
       if (kolmafia.myHp() < 0.9 * kolmafia.myMaxhp()) {
         kolmafia.print(`Can't plant acorns in ${location} safely now.`, HIGHLIGHT);
       } else if (moxieMargin(location) < 10) {
@@ -35388,22 +35388,20 @@ function zoneTasks(target) {
         return;
       }
       plantAttempts.set(location, PLANT_ATTEMPTS);
-      planting = "";
+      planting = [];
     },
-    choices: () => _objectSpread2(_objectSpread2(_objectSpread2({}, wanderer().getChoices(location)), zoneChoices(location)), {}, {
-      1557: `1&bandersnatch=${chiassoTarget(location).id}`
-    }),
+    choices: () => _objectSpread2(_objectSpread2({}, wanderer().getChoices(location)), getChoiceObject(chiassoTarget(location))),
     combat: pearlStrategy(() => plantingMacro(location, toPlant())),
     post: () => {
-      if (!planting) return;
+      if (!planting.length) return;
       // A noncombat or a wanderer in place of the zone fight leaves the planting for another try
-      if (!pearlMonsters(location, "R").includes(kolmafia.toMonster(get$2("lastEncounter")))) {
+      if (!pearlMonsters(location, ["R"]).includes(kolmafia.toMonster(get$2("lastEncounter")))) {
         plantAttempts.set(location, (plantAttempts.get(location) ?? 1) - 1);
         return;
       }
       recordPlanting(location, planting, acornsBefore);
       noteCow(location, observeAcornFight(location));
-      var won = get$2(target.completionPref) || get$2(target.progressPref, 0) > progressBefore;
+      var won = get$2(target.completionPref) || get$2(target.progressPref) > progressBefore;
       if (!won || have$T($effect`Beaten Up`)) {
         _set(PLANT_FAILED_PREF, true);
         kolmafia.print(`Lost the acorn planting fight in ${location}.`, "red");
@@ -35421,19 +35419,12 @@ function zoneTasks(target) {
       started.add(location);
       getFreeFishy();
       if (!(kolmafia.totalTurnsPlayed() % 11)) meatMood().execute(estimatedGarboTurns());
-      if (kolmafia.myHp() < 0.8 * kolmafia.myMaxhp()) kolmafia.restoreHp(0.9 * kolmafia.myMaxhp());
-      var planned = ((_zone2 = zone()) === null || _zone2 === void 0 ? void 0 : _zone2.resistance) ?? 0;
       var worn = kolmafia.numericModifier(`${target.maximizeElement} Resistance`);
-      if (worn >= planned) {
-        wornResistance.delete(location);
-      } else if (wornResistance.get(location) !== worn) {
-        wornResistance.set(location, worn);
-        kolmafia.print(`Wearing ${worn} ${target.maximizeElement} resistance in ${location}, below the planned ${planned}.`, HIGHLIGHT);
-      }
+      if (worn >= (((_zone2 = zone()) === null || _zone2 === void 0 ? void 0 : _zone2.resistance) ?? 0)) wornResistance.delete(location);else wornResistance.set(location, worn);
     },
     effects: resistanceBuffs,
     outfit: () => {
-      var modifier = [resistanceModifier(zone())];
+      var modifier = [resistanceModifier(target, zone().resistance)];
       var modes = {
         parka: parkaMode(target.maximizeElement)
       };
@@ -35444,7 +35435,7 @@ function zoneTasks(target) {
           avoid: avoidedPearlGear()
         });
       }
-      return barfOutfit({
+      return computeBarfOutfit({
         modifier: [].concat(modifier, ["+sea"]),
         modes,
         avoid: avoidedPearlGear(),
@@ -35452,22 +35443,21 @@ function zoneTasks(target) {
       });
     },
     do: location,
-    choices: () => _objectSpread2(_objectSpread2({}, wanderer().getChoices(location)), zoneChoices(location)),
-    combat: pearlStrategy(() => Macro.externalIf(moxieMargin(location) < 10, Macro.delevel()).meatKill()),
+    choices: () => wanderer().getChoices(location),
+    combat: pearlStrategy(() => Macro.externalIf(moxieMargin(location) < 10 || pearlMonsters(location).some(needsDelevel), Macro.delevel()).meatKill()),
     post: () => noteCow(location, observeAcornFight(location)),
     spendsTurn: true,
     sobriety: "sober"
   };
   return [plant, fight];
 }
-var luckySource = () => luckySourceTasks.find(task => !task.completed() && undelay(task.turns));
 
 /**
  * @returns Whether a Lucky! trip to The Haggling's 20 Fishy saves more adventures than its two adventures and the Lucky! are worth
  */
 function hagglingWorth() {
-  var _plan2;
-  var uncovered = sum(((_plan2 = plan) === null || _plan2 === void 0 ? void 0 : _plan2.filter(zone => zone.farm && !get$2(zone.target.completionPref))) ?? [], zone => pearlFightsLeft(zone.target, fightResistance(zone))) - freeFishyTurns();
+  var _pearlBlock3;
+  var uncovered = sum(((_pearlBlock3 = pearlBlock()) === null || _pearlBlock3 === void 0 ? void 0 : _pearlBlock3.filter(zone => zone.farm && !get$2(zone.target.completionPref))) ?? [], zone => fightsLeftAt(zone.target, fightResistance(zone))) - freeFishyTurns();
   return uncovered > 2 && (Math.min(20, uncovered) - 2) * get$2("valueOfAdventure") > getBestLuckyAdventure().value();
 }
 
@@ -35475,29 +35465,48 @@ function hagglingWorth() {
  * @returns Whether an active Lucky! is all that keeps the block from a zone
  */
 var luckyBlocked = () => have$T($effect`Lucky!`) && !currentZone() && !!currentZone(true);
-var haggling = {
+
+/**
+ * @returns Whether to spend a Lucky! on The Haggling: to use up a Lucky! that blocks a zone, or for Fishy the zones are worth
+ */
+var hagglingWanted = () => kolmafia.canAdventure($location`The Brinier Deepers`) && (luckyBlocked() || freeFishyTurns() === 0 && budget() >= 3 && !!currentZone() && hagglingWorth());
+var hagglingTasks = [].concat(_toConsumableArray(luckySourceTasks.map(task => _objectSpread2(_objectSpread2({}, task), {}, {
+  name: `Pearl ${task.name}`,
+  ready: () => hagglingWanted() && task.ready()
+}))), [{
   name: "Pearl Lucky Fishy",
-  ready: () => !hagglingFailed && kolmafia.canAdventure($location`The Brinier Deepers`) && (luckyBlocked() || freeFishyTurns() === 0 && budget() >= 3 && !!currentZone() && hagglingWorth()),
-  completed: () => !have$T($effect`Lucky!`) && !luckySource(),
+  ready: () => have$T($effect`Lucky!`) && hagglingWanted(),
+  completed: () => !have$T($effect`Lucky!`),
   outfit: () => freeFightOutfit({
     avoid: $items`Peridot of Peril`
   }, $location`The Brinier Deepers`),
-  do: () => {
-    var _luckySource;
-    if (!have$T($effect`Lucky!`)) (_luckySource = luckySource()) === null || _luckySource === void 0 || _luckySource.do();
-    if (have$T($effect`Lucky!`)) kolmafia.adv1($location`The Brinier Deepers`, -1, "");else hagglingFailed = true;
-  },
+  do: $location`The Brinier Deepers`,
   combat: new GarboStrategy(() => Macro.basicCombat()),
   spendsTurn: true,
   sobriety: "sober"
-};
-var report = {
-  name: "Pearl Block Report",
-  ready: () => !!plan && !currentZone() && !have$T($effect`Lucky!`),
-  completed: () => reported,
+}]);
+var startBlock = {
+  name: "Start Pearl Block",
+  completed: () => announced,
   do: () => {
-    reported = true;
-    kolmafia.print(`Pearl block done with ${budget()} adventures above saveTurns.`, HIGHLIGHT);
+    announced = true;
+    var zones = pearlBlock() ?? [];
+    var _iterator = _createForOfIteratorHelper(zones),
+      _step;
+    try {
+      for (_iterator.s(); !(_step = _iterator.n()).done;) {
+        var zone = _step.value;
+        kolmafia.print(zone.summary, HIGHLIGHT);
+      }
+    } catch (err) {
+      _iterator.e(err);
+    } finally {
+      _iterator.f();
+    }
+    kolmafia.print(`Pearl block: ${blockBudget()} adventures against a reserve of ${pearlReserve(zones)}, ${acornsLeft ?? 0} acorns left today.`, HIGHLIGHT);
+    if (!zones.some(zone => zone.farm)) return;
+    _set(BLOCK_PREF, kolmafia.myAscensions());
+    trackMarginalMpa(0);
   },
   spendsTurn: false
 };
@@ -35507,9 +35516,9 @@ var report = {
  */
 var PearlQuest = () => ({
   name: "Pearls",
-  ready: canBreatheUnderwater,
+  ready: () => canBreatheUnderwater() && pearlBlockStarted(),
   completed: () => !canContinue(),
-  tasks: [haggling].concat(_toConsumableArray(PearlTargets.flatMap(zoneTasks)), [report])
+  tasks: [startBlock].concat(_toConsumableArray(hagglingTasks), _toConsumableArray(PearlTargets.flatMap(zoneTasks)))
 });
 
 var TurnGenTasks = [{
@@ -35571,9 +35580,7 @@ function shouldGoUnderwater() {
   if (getStep("questS01OldGuy") === QuestState.UNSTARTED) {
     kolmafia.visitUrl("place.php?whichplace=sea_oldman&action=oldman_oldman");
   }
-  if (!get$1("Adventure Underwater") && waterBreathingEquipment.every(item => !have$T(item) || !kolmafia.canEquip(item))) {
-    return false;
-  }
+  if (!canBreatheUnderwater()) return false;
   if (!get$1("Underwater Familiar") && familiarWaterBreathingEquipment.every(item => !have$T(item))) {
     return false;
   }
@@ -35588,15 +35595,7 @@ function shouldGoUnderwater() {
   }
   if (have$T($effect`Fishy`)) return true;
   if (willYachtzee()) return false;
-  if (have$T($item`fishy pipe`) && !get$2("_fishyPipeUsed")) {
-    kolmafia.use($item`fishy pipe`);
-    if (have$T($effect`Fishy`)) return true;
-  }
-  if (get$2("skateParkStatus") === "ice" && !get$2("_skateBuff1")) {
-    kolmafia.cliExecute("skate lutz");
-    if (have$T($effect`Fishy`)) return true;
-  }
-  return false;
+  return getFreeFishy();
 }
 
 /**
