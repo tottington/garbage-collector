@@ -34331,6 +34331,9 @@ var updateParachuteFailure = () => lastParachuteFailure = kolmafia.totalTurnsPla
 var SITES_PREF = "garbo_acornSites";
 // Holds the ascension in which a banished native showed up again, which means acorn sea cows ran out
 var COWS_GONE_PREF = "_garbo_acornCowsGone";
+// Holds `<ascension>:<count>` for the acorn sea cows fought, which reset on ascension as well as at rollover
+var COWS_FOUGHT_PREF = "_garbo_acornSeaCows";
+var ACORN_COW_LIMIT = 33;
 var ACORN_SKILLS = {
   R: {
     thief: $skill`Bawdy Refrain`,
@@ -34457,12 +34460,23 @@ function recordPlanting(location, kinds, before) {
 }
 
 /**
+ * @returns The acorn sea cows garbo has fought this ascension and day
+ */
+function acornCowsFought() {
+  var _get$split3 = get$2(COWS_FOUGHT_PREF, "").split(":"),
+    _get$split4 = _slicedToArray(_get$split3, 2),
+    ascension = _get$split4[0],
+    count = _get$split4[1];
+  return Number(ascension) === kolmafia.myAscensions() ? Number(count) : 0;
+}
+
+/**
  * @returns Whether acorn sea cows have run out for this ascension and day
  */
 var acornCowsGone = () => get$2(COWS_GONE_PREF, 0) === kolmafia.myAscensions();
 
 /**
- * Note acorn sea cows running out: a native banished by an acorn appears only once the zone's sea cows are gone.
+ * Count acorn sea cows, and note them running out: a native banished by an acorn appears only once the zone's sea cows are gone.
  * The fight that casts Chiasso de los Muertos on its target doesn't count.
  * @returns Whether the fight was an acorn sea cow
  */
@@ -34475,7 +34489,9 @@ function observeAcornFight(location) {
     _set(COWS_GONE_PREF, kolmafia.myAscensions());
     kolmafia.print(`${monster} came back in ${location}, so acorn sea cows are gone.`, HIGHLIGHT);
   }
-  return monster === $monster`sea cow`;
+  var cow = monster === $monster`sea cow`;
+  if (cow) _set(COWS_FOUGHT_PREF, `${kolmafia.myAscensions()}:${acornCowsFought() + 1}`);
+  return cow;
 }
 
 // In acorn priority order. Chiasso targets the native whose loss costs least or whose fights hurt most.
@@ -34622,6 +34638,7 @@ var pearlDropValue = (monster, multiplier) => sum(kolmafia.itemDropsArray(monste
 
 /**
  * Price each open zone's pearl: P - adventures * VOA + fights * E(t) - plant risk, where E(t) is the meat and drops of an average fight in the tier's outfit, with acorn sea cows mixed in.
+ * A zone expects no more sea cows than are left of the day's limit.
  * Zones go fewest fights first, sharing the free Fishy; a fight without Fishy costs two adventures.
  * A zone is farmed only when Moxie matches its toughest monster, and acorns go only to zones that end up farmed.
  * @param acorns The acorns left to plant today
@@ -34636,6 +34653,7 @@ function planPearls(acorns, fishy) {
   var pearl = garboValue($item`unblemished pearl`);
   var cow = $monster`sea cow`;
   var reduction = penalty => sum(getActiveEffects(), effect => Math.max(0, kolmafia.numericModifier(effect, penalty)));
+  var cowsLeft = Math.max(0, ACORN_COW_LIMIT - acornCowsFought());
   var meatReduction = reduction("Meat Drop Penalty");
   var itemReduction = reduction("Item Drop Penalty");
   var zones = openPearlZones().map(target => {
@@ -34645,19 +34663,20 @@ function planPearls(acorns, fishy) {
     if (moxieMargin(target.location, [].concat(_toConsumableArray(site.kinds), _toConsumableArray(plant))) < 10) {
       plant = plant.filter(kind => kind !== "R");
     }
-    var fightValue = (t, kinds) => {
+    var fightValue = (t, kinds, fights) => {
       var zydeco = kinds.includes("Z") ? 30 : 0;
       var pressure = info(target.location).pressure + zydeco;
       var multiplier = Math.max(0, 100 + t.meat + Math.min(0, pressure + meatReduction)) / 100;
       var itemMultiplier = Math.max(0, 100 + t.item + Math.min(0, pressure + itemReduction)) / 100;
       var banished = kinds.includes("B") ? chiassoTarget(target.location) : site.banished;
       var natives = kolmafia.getMonsters(target.location).filter(monster => monster !== cow && monster !== banished);
-      var share = kinds.includes("R") && !acornCowsGone() && (cowlessFights.get(target.location) ?? 0) < 8 ? 2 / (2 + natives.length) : 0;
+      var share = kinds.includes("R") && !acornCowsGone() && (cowlessFights.get(target.location) ?? 0) < 8 ? Math.min(2 / (2 + natives.length), cowsLeft / fights) : 0;
       var nativeValue = mean(natives, m => (m.minMeat + m.maxMeat) / 2 * multiplier + pearlDropValue(m, itemMultiplier));
       return share * (300 * multiplier + pearlDropValue(cow, itemMultiplier)) + (1 - share) * nativeValue;
     };
     var top = tiers[tiers.length - 1];
-    if (plant.length && (!top || fightValue(top, plant) <= fightValue(top, site.kinds))) {
+    var topFights = top ? fightsLeftAt(target, top.resistance) : 0;
+    if (plant.length && (!top || fightValue(top, plant, topFights) <= fightValue(top, site.kinds, topFights))) {
       plant = [];
     }
     acorns -= plant.length;
@@ -34696,7 +34715,7 @@ function planPearls(acorns, fishy) {
     var options = tiers.map(t => {
       var fights = fightsLeftAt(target, t.resistance);
       var adventures = fights + Math.max(0, fights - fishy);
-      var net = pearl - adventures * voa + fights * fightValue(t, kinds) - (plant.length ? 0.1 * voa : 0);
+      var net = pearl - adventures * voa + fights * fightValue(t, kinds, fights) - (plant.length ? 0.1 * voa : 0);
       return {
         resistance: t.resistance,
         fights,
@@ -35264,7 +35283,10 @@ var PLANT_FAILED_PREF = "_garbo_pearlPlantFailed";
 var PLANT_ATTEMPTS = 3;
 var checkedAt = null;
 var acornsLeft = null;
-var announced = false;
+// The open pearls when the current plan was made
+var plannedOpen = 0;
+var plans = 0;
+var announcedPlans = 0;
 var started = new Set();
 var plantAttempts = new Map();
 // Resistance worn in a zone's last pearl fight, when it fell short of the plan
@@ -35293,15 +35315,32 @@ function decidePearlBlock() {
   var zones = planPearls(acorns, freeFishyTurns());
   var farmed = zones.some(zone => zone.farm);
   if (!latched && farmed && blockBudget() > pearlReserve(zones)) return;
+  usePlan(zones);
+}
+function usePlan(zones) {
+  plannedOpen = openPearlZones().length;
+  plans++;
   setPearlBlock(zones);
 }
 
 /**
- * @returns Whether garbo has planned the pearl block, deciding it when the time comes
+ * Plan again once a pearl is done and no zone the block started is part way through, so the next pearl is priced with the sea cows, Fishy and acorns left.
+ * A zone part way through is always finished, since its progress is lost at rollover.
+ */
+function replanBetweenPearls() {
+  var open = openPearlZones();
+  if (open.length === plannedOpen) return;
+  if (open.some(target => started.has(target.location))) return;
+  acornsLeft = plantingAllowed() && !globalOptions.ascend ? acornsLeftToday() : 0;
+  usePlan(planPearls(acornsLeft, freeFishyTurns()));
+}
+
+/**
+ * @returns Whether garbo has planned the pearl block, deciding it when the time comes and planning again between pearls
  */
 function pearlBlockStarted() {
   var _pearlBlock;
-  if (!pearlBlock()) decidePearlBlock();
+  if (!pearlBlock()) decidePearlBlock();else replanBetweenPearls();
   return !!((_pearlBlock = pearlBlock()) !== null && _pearlBlock !== void 0 && _pearlBlock.length);
 }
 var fightResistance = zone => wornResistance.get(zone.target.location) ?? zone.resistance;
@@ -35538,11 +35577,11 @@ var hagglingTasks = [].concat(_toConsumableArray(luckySourceTasks.map(task => _o
   spendsTurn: true,
   sobriety: "sober"
 }]);
-var startBlock = {
-  name: "Start Pearl Block",
-  completed: () => announced,
+var announcePlan = {
+  name: "Announce Pearl Plan",
+  completed: () => announcedPlans === plans,
   do: () => {
-    announced = true;
+    announcedPlans = plans;
     var zones = pearlBlock() ?? [];
     var _iterator = _createForOfIteratorHelper(zones),
       _step;
@@ -35556,8 +35595,11 @@ var startBlock = {
     } finally {
       _iterator.f();
     }
-    kolmafia.print(`Pearl block: ${blockBudget()} adventures against a reserve of ${pearlReserve(zones)}, ${acornsLeft ?? 0} acorns left today.`, HIGHLIGHT);
-    if (!zones.some(zone => zone.farm)) return;
+    if (!zones.some(zone => zone.farm)) {
+      kolmafia.print("No pearl left is worth its adventures.", HIGHLIGHT);
+      return;
+    }
+    kolmafia.print(`Pearl block: ${blockBudget()} adventures against a reserve of ${pearlReserve(zones)}, ${acornsLeft ?? 0} acorns left today, ${ACORN_COW_LIMIT - acornCowsFought()} acorn sea cows left.`, HIGHLIGHT);
     _set(BLOCK_PREF, kolmafia.myAscensions());
     trackMarginalMpa(0);
   },
@@ -35572,7 +35614,7 @@ var PearlQuest = () => ({
   name: "Pearls",
   ready: () => globalOptions.pearlo && canBreatheUnderwater() && pearlBlockStarted(),
   completed: () => !canContinue(),
-  tasks: [startBlock].concat(_toConsumableArray(hagglingTasks), _toConsumableArray(PearlTargets.flatMap(zoneTasks)))
+  tasks: [announcePlan].concat(_toConsumableArray(hagglingTasks), _toConsumableArray(PearlTargets.flatMap(zoneTasks)))
 });
 
 var TurnGenTasks = [{
