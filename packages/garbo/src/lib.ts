@@ -10,6 +10,7 @@ import {
   getLocketMonsters,
   getMonsters,
   gitInfo,
+  haveEffect,
   haveEquipped,
   holiday,
   inebrietyLimit,
@@ -947,6 +948,31 @@ export function freeFishyAvailable(): boolean {
     (have($item`fishy pipe`) && !get("_fishyPipeUsed")) ||
     (get("skateParkStatus") === "ice" && !get("_skateBuff1"))
   );
+}
+
+/**
+ * @returns Fishy turns available without spending anything: the current effect, the fishy pipe and a lutz at the icy Skate Park
+ */
+export function freeFishyTurns(): number {
+  return (
+    haveEffect($effect`Fishy`) +
+    (have($item`fishy pipe`) && !get("_fishyPipeUsed") ? 10 : 0) +
+    (get("skateParkStatus") === "ice" && !get("_skateBuff1") ? 30 : 0)
+  );
+}
+
+/**
+ * Get Fishy from a free source: the fishy pipe, then a lutz at the icy Skate Park.
+ * @returns Whether Fishy is active
+ */
+export function getFreeFishy(): boolean {
+  if (!have($effect`Fishy`) && have($item`fishy pipe`)) {
+    if (!get("_fishyPipeUsed")) use($item`fishy pipe`);
+  }
+  if (!have($effect`Fishy`) && get("skateParkStatus") === "ice") {
+    if (!get("_skateBuff1")) cliExecute("skate lutz");
+  }
+  return have($effect`Fishy`);
 }
 
 export const ULTRA_RARE_MONSTERS = Monster.all().filter((m) =>
