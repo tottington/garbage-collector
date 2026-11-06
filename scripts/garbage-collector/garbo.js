@@ -35210,6 +35210,10 @@ function blockPlan() {
   if (plan) return plan;
   var latched = get$2(BLOCK_PREF, 0) === kolmafia.myAscensions();
   if (decided || !sober() || checkedAt === kolmafia.myAdventures()) return null;
+  if (!openPearlZones().length) {
+    decided = true;
+    return null;
+  }
   if (!latched && blockBudget() > worstPearlAdventures()) return null;
   checkedAt = kolmafia.myAdventures();
   // Acorns are lost on ascension, so a run that ends by ascending plants none
