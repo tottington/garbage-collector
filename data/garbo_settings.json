@@ -1,0 +1,74 @@
+[
+  {
+    "name": "valueOfAdventure",
+    "description": "What is a marginal barf turn worth to you?"
+  },
+  {
+    "name": "garbo_vipClan",
+    "description": "What is your vip clan? Set to current clan if you don't have access to one (And then get whitelisted to BAFH. It's free!)."
+  },
+  {
+    "name": "garbo_stashClan",
+    "description": "What is your stash clan? Set to 'none' to disable borrowing shared equipment from a clan stash."
+  },
+  {
+    "name": "garbo_skipAscensionCheck",
+    "type": "boolean",
+    "description": "Should skip verifying that your account has broken the prism? Set to true if you want to proceed regardless, and false if you'd like to be warned."
+  },
+  {
+    "name": "garbo_valueOfFreeFight",
+    "defaultValue": 2000,
+    "description": "What is a free fight\run worth to you? (Default 2000)."
+  },
+  {
+    "name": "garbo_fightGlitch",
+    "type": "boolean",
+    "description": "Should we fight the glitch season reward? This assumes you have access to many skills--Curse of Marinara, Conspiratorial Whispers, Shadow Noodles, and more."
+  },
+  {
+    "name": "garbo_buyPass",
+    "type": "boolean",
+    "description": "Should a dinsey day pass be bought with FunFunds (if possible) at the end of the script?"
+  },
+  {
+    "name": "garbo_yachtzeechain",
+    "type": "boolean",
+    "description": "only diets after free fights, and attempts to estimate if Yachtzee! chaining is profitable for you. Requires Spring Break Beach access (it will not grab a one-day pass for you, but will make an attempt if one is used)."
+  },
+  {
+    "name": "garbo_skipPillCheck",
+    "type": "boolean",
+    "description": "Should skip prompting you to go acquire distention and synthetic dog hair pills? Set to true if you want to proceed without them, and false if you want to be reminded."
+  },
+  {
+    "name": "garbo_prioritizeCappingGuzzlr",
+    "type": "boolean",
+    "description": "Should garbo prioritize capping your Guzzlr tablet over getting guzzlrbucks?"
+  },
+  {
+    "name": "garbo_autoUserConfirm",
+    "type": "boolean",
+    "description": "**WARNING: Experimental** Don't show user confirm dialogs, instead automatically select yes/no in a way that will allow garbo to continue executing. Useful for scripting/headless. Risky and potentially destructive."
+  },
+  {
+    "name": "garbo_autoUserConfirm_targetInvocationsThreshold",
+    "defaultValue": 1,
+    "description": "This is used only when autoUserConfirm is true, will automatically use resources (such as pocket wishes, 11-leaf clovers, etc) up to this threshold to source a target monster for chaining before requesting user interference."
+  },
+  {
+    "name": "garbo_IgnoreMarginalFamiliars",
+    "type": "boolean",
+    "description": "Should garbo use only your meat familiar throughout your barf-turns, or should it also use drops familiars to maximize profit?"
+  },
+  {
+    "name": "garbo_restoreHpTarget",
+    "defaultValue": 2000,
+    "description": "If you're a very high level, what HP threshold should garbo aim to maintain?"
+  },
+  {
+    "name": "garbo_bczStatFloor",
+    "defaultValue": 0,
+    "description": "When greater than zero, Garbo will not allow Blood Cubic Zirconia usage to push your stats below this number. (IE, if you pick 200, Garbo will never use enough BCZ casts to get your base Moxie stat below 200.)"
+  }
+]
