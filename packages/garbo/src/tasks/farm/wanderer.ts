@@ -213,7 +213,10 @@ const BarfTurnTasks: FarmingTask[] = [
     outfit: () =>
       meatTargetOutfit(
         sober() ? {} : { offhand: $item`Drunkula's wineglass` },
-        get("nextSpookyravenStephenRoom") ?? $location.none,
+        {
+          location: get("nextSpookyravenStephenRoom") ?? $location.none,
+          target: $monster`Stephen Spookyraven`,
+        },
       ),
     spendsTurn: isSteve,
     combat: new GarboStrategy(() =>
@@ -310,7 +313,14 @@ const BarfTurnTasks: FarmingTask[] = [
     ready: shouldGoUnderwater,
     acquire: () => [{ item: $item`pulled green taffy` }],
     do: $location`The Briny Deeps`,
-    outfit: () => meatTargetOutfit({}, $location`The Briny Deeps`),
+    outfit: () =>
+      meatTargetOutfit(
+        {},
+        {
+          location: $location`The Briny Deeps`,
+          target: SourceTerminal.getDigitizeMonster() ?? $monster.none,
+        },
+      ),
     combat: new GarboStrategy(
       ...digitizeMacros(Macro.item($item`pulled green taffy`)),
     ),
@@ -558,6 +568,7 @@ const BarfTurnTasks: FarmingTask[] = [
   ),
   {
     name: "Yachtzee (Cooldown ready)",
+    ready: () => romanticMonsterImpossible(),
     completed: () => get("encountersUntilYachtzeeChoice") > 0,
     outfit: () => {
       setLocation($location`The Sunken Party Yacht`);

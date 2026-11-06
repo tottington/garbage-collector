@@ -7,6 +7,7 @@ import {
   Location,
   mallPrice,
   Monster,
+  Phylum,
 } from "kolmafia";
 import { GarboStrategy } from "./combatStrategy";
 import {
@@ -130,6 +131,16 @@ class FarmingStrategySkeleton {
 
   olfactMonster(): Monster | null {
     return this.shouldOlfact ? undelay(this.targetMonster) : null;
+  }
+
+  singlePhylumInZone(): Phylum | null {
+    const monsters = this.monsters().filter(
+      (m) => !this.banishMonsters.includes(m),
+    );
+
+    const phyla = new Set(monsters.map((m) => m.phylum));
+
+    return phyla.size === 1 ? monsters[0].phylum : null;
   }
 
   monsters(): Monster[] {
