@@ -145,7 +145,7 @@ export const worstPearlAdventures = () =>
 
 let reservedTurns = () => 0;
 /**
- * @returns The adventures the pearl block will take from the end of the sober leg
+ * @returns The adventures held back at the end of garbo's farming for the pearl block
  */
 export const pearlTurnsReserved = () => reservedTurns();
 export function setPearlTurnsReserved(turns: () => number): void {

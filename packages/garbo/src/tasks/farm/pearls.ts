@@ -124,8 +124,8 @@ const reserve = (zones: ZonePlan[]) =>
   ) + 3;
 
 /**
- * Decide the pearl block once the sober adventures left fall to what the farmed zones need.
- * Adventures above saveTurns are a lower bound on the sober turns left, so errors start the block early.
+ * Start the pearl block once the adventures left fall to what the farmed zones need.
+ * Adventures above saveTurns never count more turns than garbo has left, so an error starts the block early.
  * @returns The block's zones once it has started
  */
 function blockPlan(): ZonePlan[] | null {
@@ -134,7 +134,7 @@ function blockPlan(): ZonePlan[] | null {
   if (decided || !sober() || checkedAt === myAdventures()) return null;
   if (!latched && blockBudget() > worstPearlAdventures()) return null;
   checkedAt = myAdventures();
-  // An ascending run leaves the day's acorns to the next ascension's leg
+  // Acorns are lost on ascension, so a run that ends by ascending plants none
   const acorns = (acornsLeft ??=
     plantingAllowed() && !globalOptions.ascend ? acornsLeftToday() : 0);
   const zones = planPearls(acorns, freeFishyTurns());
@@ -500,7 +500,7 @@ const report: PearlTask = {
 };
 
 /**
- * Farms unblemished pearls in a block at the end of each sober leg, inside garbo's buffed loop, with acorn sea cows where the acorndion can plant them.
+ * Farms unblemished pearls in a block at the end of garbo's farming, while its meat buffs are still active, fighting acorn sea cows where the acorndion can plant them.
  */
 export const PearlQuest = (): Quest<PearlTask, FarmingContext> => ({
   name: "Pearls",
