@@ -27,6 +27,7 @@ import { estimatedGarboTurns } from "../../turns";
 import { barfOutfit } from "../../outfit/barf";
 import { FarmingContext } from "../context";
 import { acquire } from "../../acquire";
+import { pearlTurnsReserved } from "../../resources/pearls";
 
 export const farmPrepare = (context: FarmingContext) => {
   if (redTaffyWorth() && FarmingStrategy.isUnderwater()) {
@@ -84,7 +85,7 @@ export function FarmTurnQuest(): Quest<
         post: () => {
           FarmingStrategy.post?.();
           if (!have($effect`Everything looks Beige`)) updateParachuteFailure();
-          trackMarginalMpa();
+          trackMarginalMpa(estimatedGarboTurns() - pearlTurnsReserved());
         },
         spendsTurn: true,
       },
@@ -97,7 +98,7 @@ export function FarmTurnQuest(): Quest<
         combat: FarmingStrategy.strategy(),
         post: () => {
           FarmingStrategy.post?.();
-          trackMarginalMpa();
+          trackMarginalMpa(estimatedGarboTurns() - pearlTurnsReserved());
 
           if (toMonster(get("lastEncounter")) === $monster`tumbleweed`) {
             throw new Error(

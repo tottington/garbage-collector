@@ -1273,7 +1273,11 @@ function itemStealOlfact(best: ItemStealZone) {
 }
 
 const BAD_CLL_MONSTERS = $monsters`alert mariachi`;
-type FreeKill = { spec?: OutfitSpec; macro: Skill | Item; used: () => boolean };
+export type FreeKill = {
+  spec?: OutfitSpec;
+  macro: Skill | Item;
+  used: () => boolean;
+};
 const freeKills: FreeKill[] = [
   {
     spec: { equip: $items`The Jokester's gun` },
@@ -1300,8 +1304,10 @@ const freeKills: FreeKill[] = [
 ];
 const canUseSource = ({ spec, macro, used }: FreeKill) =>
   (spec?.equip?.every((i) => have(i)) ?? have(macro)) && !used();
-function findFreeKill() {
-  return freeKills.find(canUseSource) ?? null;
+export function findFreeKill(
+  filter: (freeKill: FreeKill) => boolean = () => true,
+) {
+  return freeKills.find((k) => filter(k) && canUseSource(k)) ?? null;
 }
 
 function killRobortCreaturesForFree() {

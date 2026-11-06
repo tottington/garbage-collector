@@ -473,7 +473,7 @@ const NonBarfTurnTasks: AlternateTask<FarmingContext>[] = [
   },
 ];
 
-function nonBarfTurns(): number {
+export function nonBarfTurns(): number {
   return sum(
     NonBarfTurnTasks.filter(
       (t) => (t.ready?.(EMPTY_CONTEXT) ?? true) && !t.completed(EMPTY_CONTEXT),

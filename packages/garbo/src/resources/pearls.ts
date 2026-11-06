@@ -1,10 +1,14 @@
 import { PearlTarget, PearlTargets } from "garbo-lib";
+import { Modes } from "grimoire-kolmafia";
 import {
   canAdventure,
+  Element,
   getMonsters,
+  itemDropsArray,
   Location,
   maximize,
   Monster,
+  myBuffedstat,
   numericModifier,
   setLocation,
   toMonster,
@@ -15,6 +19,7 @@ import {
   $item,
   $items,
   $monster,
+  $stat,
   clamp,
   get,
   getActiveEffects,
@@ -22,14 +27,14 @@ import {
   sum,
 } from "libram";
 import { garboValue } from "../garboValue";
-import { expectedDropValue } from "../lib";
-import { acornCowsGone, acornSite } from "./acorns";
+import { acornCowsGone, acornNames, acornSite } from "./acorns";
 
 type ZoneInfo = {
   chiasso: string;
   pressure: number;
   luckyHazard?: boolean;
   zydeco?: boolean;
+  choices?: { [id: number]: number };
 };
 
 // In acorn priority order. Chiasso targets the native whose loss costs least or whose fights hurt most.
@@ -54,6 +59,7 @@ const ZONES: Record<string, ZoneInfo> = {
     chiasso: "diving belle",
     pressure: -200,
     zydeco: true,
+    choices: { 1220: 2 },
   },
   "The Briniest Deepests": { chiasso: "acoustic electric eel", pressure: -75 },
 };
@@ -63,11 +69,47 @@ export const chiassoTarget = (location: Location) =>
   toMonster(info(location).chiasso);
 export const luckyHazard = (location: Location) =>
   info(location).luckyHazard ?? false;
+export const zoneChoices = (location: Location) => info(location).choices ?? {};
 export const avoidedPearlGear = () =>
   $items`Mer-kin digpick, broken champagne bottle, Peridot of Peril`;
 
+const PARKA_MODES: Record<string, Modes["parka"]> = {
+  cold: "kachungasaur",
+  hot: "pterodactyl",
+  sleaze: "spikolodon",
+  spooky: "ghostasaurus",
+  stench: "dilophosaur",
+};
+/**
+ * @returns The Jurassic Parka mode that resists the element
+ */
+export const parkaMode = (element: Element) =>
+  PARKA_MODES[element.toString().toLowerCase()];
+
+/**
+ * @returns The monsters a fight in the zone can meet, with sea cows when Juvenile Refrain is planted
+ */
+export const pearlMonsters = (
+  location: Location,
+  kinds = acornSite(location).kinds,
+) => [
+  ...getMonsters(location),
+  ...(kinds.includes("R") ? [$monster`sea cow`] : []),
+];
+
+/**
+ * @returns Moxie above the attack of the zone's toughest monster, counting Monster Level
+ */
+export const moxieMargin = (
+  location: Location,
+  kinds = acornSite(location).kinds,
+) =>
+  myBuffedstat($stat`Moxie`) -
+  Math.max(...pearlMonsters(location, kinds).map((m) => m.baseAttack)) -
+  numericModifier("Monster Level");
+
 // 1.7% per 3 points of the zone's resistance, from 1.7% up to 10% at 18
-export const progressRate = (resistance: number) =>
+const progressRate = (resistance: number) =>
   clamp(1.7 * Math.floor(resistance / 3), 1.7, 10);
 const TIERS = [12, 15, 18];
 // A whole pearl at the lowest tier with no Fishy: 15 fights at 2 adventures each
@@ -101,7 +143,16 @@ export function openPearlZones(): PearlTarget[] {
 export const worstPearlAdventures = () =>
   sum(openPearlZones(), () => Math.ceil(1.15 * WORST_ADVENTURES) + 1) + 3;
 
-type Tier = { resistance: number; meat: number };
+let reservedTurns = () => 0;
+/**
+ * @returns The adventures the pearl block will take from the end of the sober leg
+ */
+export const pearlTurnsReserved = () => reservedTurns();
+export function setPearlTurnsReserved(turns: () => number): void {
+  reservedTurns = turns;
+}
+
+type Tier = { resistance: number; meat: number; item: number };
 const probes = new Map<Location, Tier[]>();
 /**
  * Simulate the maximizer at each resistance tier, counting the free resistance buffs not yet active.
@@ -128,7 +179,8 @@ function tierProbe(target: PearlTarget): Tier[] {
       maximize(spec.join(", "), 0, 0, true, false) &&
       numericModifier("Generated:_spec", modifier) + pending >= resistance;
     const meat = numericModifier("Generated:_spec", "Meat Drop");
-    return reached ? [{ resistance, meat }] : [];
+    const item = numericModifier("Generated:_spec", "Item Drop");
+    return reached ? [{ resistance, meat, item }] : [];
   });
   probes.set(target.location, tiers);
   return tiers;
@@ -157,31 +209,60 @@ export type ZonePlan = {
 const mean = (monsters: Monster[], f: (m: Monster) => number) =>
   monsters.length ? sum(monsters, f) / monsters.length : 0;
 
+const pearlDropValue = (monster: Monster, multiplier: number) =>
+  sum(
+    itemDropsArray(monster),
+    ({ drop, rate, type }) =>
+      Math.min(1, (rate / 100) * (type === "0" ? 1 : multiplier)) *
+      garboValue(drop),
+  );
+
 /**
  * Price each open zone's pearl: P - adventures * VOA + fights * E(t) - plant risk, where E(t) is the meat and drops of an average fight in the tier's outfit, with acorn sea cows mixed in.
  * Zones go fewest fights first, sharing the free Fishy; a fight without Fishy costs two adventures.
+ * A zone is farmed only when Moxie matches its toughest monster, and acorns go only to zones that end up farmed.
  * @param acorns The acorns left to plant today
  * @param fishy The Fishy turns available
+ * @param noPlant Zones that get no acorns
  */
-export function planPearls(acorns: number, fishy: number): ZonePlan[] {
+export function planPearls(
+  acorns: number,
+  fishy: number,
+  noPlant = new Set<Location>(),
+): ZonePlan[] {
+  const startAcorns = acorns;
+  const startFishy = fishy;
   const voa = get("valueOfAdventure");
   const pearl = garboValue($item`unblemished pearl`);
   const cow = $monster`sea cow`;
-  const reduction = sum(getActiveEffects(), (effect) =>
-    Math.max(0, numericModifier(effect, "Meat Drop Penalty")),
-  );
+  const reduction = (penalty: string) =>
+    sum(getActiveEffects(), (effect) =>
+      Math.max(0, numericModifier(effect, penalty)),
+    );
+  const meatReduction = reduction("Meat Drop Penalty");
+  const itemReduction = reduction("Item Drop Penalty");
 
   const zones = openPearlZones().map((target) => {
     const tiers = tierProbe(target);
     const site = acornSite(target.location);
-    let plant = site.kinds ? "" : acorns >= 2 ? "BR" : acorns === 1 ? "R" : "";
+    let plant =
+      site.kinds || noPlant.has(target.location)
+        ? ""
+        : acorns >= 2
+          ? "BR"
+          : acorns === 1
+            ? "R"
+            : "";
+    if (moxieMargin(target.location, site.kinds + plant) < 10) {
+      plant = plant.replace("R", "");
+    }
     const fightValue = (t: Tier, kinds: string) => {
       const zydeco = kinds.includes("Z") ? 30 : 0;
-      const penalty = Math.min(
-        0,
-        info(target.location).pressure + reduction + zydeco,
-      );
-      const multiplier = Math.max(0, 100 + t.meat + penalty) / 100;
+      const pressure = info(target.location).pressure + zydeco;
+      const multiplier =
+        Math.max(0, 100 + t.meat + Math.min(0, pressure + meatReduction)) / 100;
+      const itemMultiplier =
+        Math.max(0, 100 + t.item + Math.min(0, pressure + itemReduction)) / 100;
       const banished = kinds.includes("B")
         ? chiassoTarget(target.location)
         : site.banished;
@@ -197,15 +278,19 @@ export function planPearls(acorns: number, fishy: number): ZonePlan[] {
       const nativeValue = mean(
         natives,
         (m) =>
-          ((m.minMeat + m.maxMeat) / 2) * multiplier + expectedDropValue(m),
+          ((m.minMeat + m.maxMeat) / 2) * multiplier +
+          pearlDropValue(m, itemMultiplier),
       );
       return (
-        share * (300 * multiplier + expectedDropValue(cow)) +
+        share * (300 * multiplier + pearlDropValue(cow, itemMultiplier)) +
         (1 - share) * nativeValue
       );
     };
     const top = tiers[tiers.length - 1];
-    if (plant && top && fightValue(top, plant) <= fightValue(top, site.kinds)) {
+    if (
+      plant &&
+      (!top || fightValue(top, plant) <= fightValue(top, site.kinds))
+    ) {
       plant = "";
     }
     acorns -= plant.length;
@@ -223,7 +308,8 @@ export function planPearls(acorns: number, fishy: number): ZonePlan[] {
     z.tiers.length
       ? pearlFightsLeft(z.target, z.tiers[z.tiers.length - 1].resistance)
       : Infinity;
-  return zones
+  const unused: Location[] = [];
+  const plans = zones
     .sort((a, b) => fightsAtTop(a) - fightsAtTop(b))
     .map(({ target, tiers, site, plant, fightValue }) => {
       const kinds = site.kinds + plant;
@@ -243,9 +329,14 @@ export function planPearls(acorns: number, fishy: number): ZonePlan[] {
         adventures: 0,
         net: -Infinity,
       });
-      const farm = best.net > 0;
+      const farm = best.net > 0 && moxieMargin(target.location, kinds) >= 0;
       if (farm) fishy = Math.max(0, fishy - best.fights);
-      const summary = `Pearl plan for ${target.location}: ${options.map((o) => `${o.resistance} res, ${o.fights} fights, net ${Math.round(o.net)}`).join("; ") || "no tier reaches 12 resistance"}. ${farm ? `Farming at ${best.resistance} res over ${best.adventures} adventures` : "Skipping"}; acorns ${site.kinds || "none"}${farm && plant ? `, planting ${plant}` : ""}.`;
+      else if (plant) unused.push(target.location);
+      const summary = `Pearl plan for ${target.location}: ${options.map((o) => `${o.resistance} res, ${o.fights} fights, net ${Math.round(o.net)}`).join("; ") || "no tier reaches 12 resistance"}. ${farm ? `Farming at ${best.resistance} res over ${best.adventures} adventures` : "Skipping"}; acorns ${acornNames(site.kinds)}${farm && plant ? `, planting ${acornNames(plant)}` : ""}.`;
       return { target, ...best, plant: farm ? plant : "", farm, summary };
     });
+
+  return unused.length
+    ? planPearls(startAcorns, startFishy, new Set([...noPlant, ...unused]))
+    : plans;
 }
