@@ -30,6 +30,7 @@ import {
   have,
   sum,
 } from "libram";
+import { globalOptions } from "../config";
 import { garboValue } from "../garboValue";
 import { sober, withLocation } from "../lib";
 import { canBreatheUnderwater } from "../outfit/lib";
@@ -202,7 +203,7 @@ export function setPearlBlock(zones: ZonePlan[]): void {
 export const pearlTurnsReserved = () =>
   block
     ? pearlReserve(block)
-    : !sober() || !canBreatheUnderwater()
+    : !globalOptions.pearlo || !sober() || !canBreatheUnderwater()
       ? 0
       : worstPearlAdventures();
 

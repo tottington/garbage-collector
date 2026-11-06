@@ -487,10 +487,12 @@ const startBlock: PearlTask = {
 
 /**
  * Farms unblemished pearls in a block at the end of garbo's farming, while its meat buffs are still active, fighting acorn sea cows where the acorndion can plant them.
+ * Runs only with the `pearlo` argument.
  */
 export const PearlQuest = (): Quest<PearlTask, FarmingContext> => ({
   name: "Pearls",
-  ready: () => canBreatheUnderwater() && pearlBlockStarted(),
+  ready: () =>
+    globalOptions.pearlo && canBreatheUnderwater() && pearlBlockStarted(),
   completed: () => !canContinue(),
   tasks: [startBlock, ...hagglingTasks, ...PearlTargets.flatMap(zoneTasks)],
 });
