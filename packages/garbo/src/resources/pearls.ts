@@ -34,7 +34,14 @@ import { globalOptions } from "../config";
 import { garboValue } from "../garboValue";
 import { sober, withLocation } from "../lib";
 import { canBreatheUnderwater } from "../outfit/lib";
-import { acornCowsGone, AcornKind, acornNames, acornSite } from "./acorns";
+import {
+  ACORN_COW_LIMIT,
+  acornCowsFought,
+  acornCowsGone,
+  AcornKind,
+  acornNames,
+  acornSite,
+} from "./acorns";
 
 type ZoneInfo = {
   chiasso: Monster;
@@ -264,6 +271,7 @@ const pearlDropValue = (monster: Monster, multiplier: number) =>
 
 /**
  * Price each open zone's pearl: P - adventures * VOA + fights * E(t) - plant risk, where E(t) is the meat and drops of an average fight in the tier's outfit, with acorn sea cows mixed in.
+ * A zone expects no more sea cows than are left of the day's limit.
  * Zones go fewest fights first, sharing the free Fishy; a fight without Fishy costs two adventures.
  * A zone is farmed only when Moxie matches its toughest monster, and acorns go only to zones that end up farmed.
  * @param acorns The acorns left to plant today
@@ -284,6 +292,7 @@ export function planPearls(
     sum(getActiveEffects(), (effect) =>
       Math.max(0, numericModifier(effect, penalty)),
     );
+  const cowsLeft = Math.max(0, ACORN_COW_LIMIT - acornCowsFought());
   const meatReduction = reduction("Meat Drop Penalty");
   const itemReduction = reduction("Item Drop Penalty");
 
@@ -301,7 +310,7 @@ export function planPearls(
     if (moxieMargin(target.location, [...site.kinds, ...plant]) < 10) {
       plant = plant.filter((kind) => kind !== "R");
     }
-    const fightValue = (t: Tier, kinds: AcornKind[]) => {
+    const fightValue = (t: Tier, kinds: AcornKind[], fights: number) => {
       const zydeco = kinds.includes("Z") ? 30 : 0;
       const pressure = info(target.location).pressure + zydeco;
       const multiplier =
@@ -318,7 +327,7 @@ export function planPearls(
         kinds.includes("R") &&
         !acornCowsGone() &&
         (cowlessFights.get(target.location) ?? 0) < 8
-          ? 2 / (2 + natives.length)
+          ? Math.min(2 / (2 + natives.length), cowsLeft / fights)
           : 0;
       const nativeValue = mean(
         natives,
@@ -332,9 +341,12 @@ export function planPearls(
       );
     };
     const top = tiers[tiers.length - 1];
+    const topFights = top ? fightsLeftAt(target, top.resistance) : 0;
     if (
       plant.length &&
-      (!top || fightValue(top, plant) <= fightValue(top, site.kinds))
+      (!top ||
+        fightValue(top, plant, topFights) <=
+          fightValue(top, site.kinds, topFights))
     ) {
       plant = [];
     }
@@ -364,7 +376,7 @@ export function planPearls(
         const net =
           pearl -
           adventures * voa +
-          fights * fightValue(t, kinds) -
+          fights * fightValue(t, kinds, fights) -
           (plant.length ? 0.1 * voa : 0);
         return { resistance: t.resistance, fights, adventures, net };
       });

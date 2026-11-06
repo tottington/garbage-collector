@@ -22,6 +22,9 @@ type AcornSite = { kinds: AcornKind[]; banished: Monster | null };
 const SITES_PREF = "garbo_acornSites";
 // Holds the ascension in which a banished native showed up again, which means acorn sea cows ran out
 const COWS_GONE_PREF = "_garbo_acornCowsGone";
+// Holds `<ascension>:<count>` for the acorn sea cows fought, which reset on ascension as well as at rollover
+const COWS_FOUGHT_PREF = "_garbo_acornSeaCows";
+export const ACORN_COW_LIMIT = 33;
 
 const ACORN_SKILLS: Record<AcornKind, { thief: Skill; other: Skill }> = {
   R: { thief: $skill`Bawdy Refrain`, other: $skill`Juvenile Refrain` },
@@ -140,12 +143,20 @@ export function recordPlanting(
 }
 
 /**
+ * @returns The acorn sea cows garbo has fought this ascension and day
+ */
+export function acornCowsFought(): number {
+  const [ascension, count] = get(COWS_FOUGHT_PREF, "").split(":");
+  return Number(ascension) === myAscensions() ? Number(count) : 0;
+}
+
+/**
  * @returns Whether acorn sea cows have run out for this ascension and day
  */
 export const acornCowsGone = () => get(COWS_GONE_PREF, 0) === myAscensions();
 
 /**
- * Note acorn sea cows running out: a native banished by an acorn appears only once the zone's sea cows are gone.
+ * Count acorn sea cows, and note them running out: a native banished by an acorn appears only once the zone's sea cows are gone.
  * The fight that casts Chiasso de los Muertos on its target doesn't count.
  * @returns Whether the fight was an acorn sea cow
  */
@@ -162,5 +173,7 @@ export function observeAcornFight(location: Location): boolean {
       HIGHLIGHT,
     );
   }
-  return monster === $monster`sea cow`;
+  const cow = monster === $monster`sea cow`;
+  if (cow) set(COWS_FOUGHT_PREF, `${myAscensions()}:${acornCowsFought() + 1}`);
+  return cow;
 }

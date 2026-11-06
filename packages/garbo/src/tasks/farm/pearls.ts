@@ -55,6 +55,8 @@ import { barfOutfit, computeBarfOutfit } from "../../outfit/barf";
 import { freeFightOutfit } from "../../outfit/free";
 import { canBreatheUnderwater } from "../../outfit/lib";
 import {
+  ACORN_COW_LIMIT,
+  acornCowsFought,
   acorndion,
   AcornKind,
   acornsGeneratedToday,
@@ -104,7 +106,10 @@ const PLANT_ATTEMPTS = 3;
 
 let checkedAt: number | null = null;
 let acornsLeft: number | null = null;
-let announced = false;
+// The open pearls when the current plan was made
+let plannedOpen = 0;
+let plans = 0;
+let announcedPlans = 0;
 const started = new Set<Location>();
 const plantAttempts = new Map<Location, number>();
 // Resistance worn in a zone's last pearl fight, when it fell short of the plan
@@ -141,14 +146,34 @@ function decidePearlBlock(): void {
   const zones = planPearls(acorns, freeFishyTurns());
   const farmed = zones.some((zone) => zone.farm);
   if (!latched && farmed && blockBudget() > pearlReserve(zones)) return;
+  usePlan(zones);
+}
+
+function usePlan(zones: ZonePlan[]): void {
+  plannedOpen = openPearlZones().length;
+  plans++;
   setPearlBlock(zones);
 }
 
 /**
- * @returns Whether garbo has planned the pearl block, deciding it when the time comes
+ * Plan again once a pearl is done and no zone the block started is part way through, so the next pearl is priced with the sea cows, Fishy and acorns left.
+ * A zone part way through is always finished, since its progress is lost at rollover.
+ */
+function replanBetweenPearls(): void {
+  const open = openPearlZones();
+  if (open.length === plannedOpen) return;
+  if (open.some((target) => started.has(target.location))) return;
+  acornsLeft =
+    plantingAllowed() && !globalOptions.ascend ? acornsLeftToday() : 0;
+  usePlan(planPearls(acornsLeft, freeFishyTurns()));
+}
+
+/**
+ * @returns Whether garbo has planned the pearl block, deciding it when the time comes and planning again between pearls
  */
 function pearlBlockStarted(): boolean {
   if (!pearlBlock()) decidePearlBlock();
+  else replanBetweenPearls();
   return !!pearlBlock()?.length;
 }
 
@@ -467,18 +492,21 @@ const hagglingTasks: PearlTask[] = [
   },
 ];
 
-const startBlock: PearlTask = {
-  name: "Start Pearl Block",
-  completed: () => announced,
+const announcePlan: PearlTask = {
+  name: "Announce Pearl Plan",
+  completed: () => announcedPlans === plans,
   do: () => {
-    announced = true;
+    announcedPlans = plans;
     const zones = pearlBlock() ?? [];
     for (const zone of zones) print(zone.summary, HIGHLIGHT);
+    if (!zones.some((zone) => zone.farm)) {
+      print("No pearl left is worth its adventures.", HIGHLIGHT);
+      return;
+    }
     print(
-      `Pearl block: ${blockBudget()} adventures against a reserve of ${pearlReserve(zones)}, ${acornsLeft ?? 0} acorns left today.`,
+      `Pearl block: ${blockBudget()} adventures against a reserve of ${pearlReserve(zones)}, ${acornsLeft ?? 0} acorns left today, ${ACORN_COW_LIMIT - acornCowsFought()} acorn sea cows left.`,
       HIGHLIGHT,
     );
-    if (!zones.some((zone) => zone.farm)) return;
     set(BLOCK_PREF, myAscensions());
     trackMarginalMpa(0);
   },
@@ -494,5 +522,5 @@ export const PearlQuest = (): Quest<PearlTask, FarmingContext> => ({
   ready: () =>
     globalOptions.pearlo && canBreatheUnderwater() && pearlBlockStarted(),
   completed: () => !canContinue(),
-  tasks: [startBlock, ...hagglingTasks, ...PearlTargets.flatMap(zoneTasks)],
+  tasks: [announcePlan, ...hagglingTasks, ...PearlTargets.flatMap(zoneTasks)],
 });
