@@ -34640,7 +34640,7 @@ var pearlDropValue = (monster, multiplier) => sum(kolmafia.itemDropsArray(monste
  * Price each open zone's pearl: P - adventures * VOA + fights * E(t) - plant risk, where E(t) is the meat and drops of an average fight in the tier's outfit, with acorn sea cows mixed in.
  * A zone expects no more sea cows than are left of the day's limit.
  * Zones go fewest fights first, sharing the free Fishy; a fight without Fishy costs two adventures.
- * A zone is farmed only when Moxie matches its toughest monster, and acorns go only to zones that end up farmed.
+ * Acorns go only to zones that end up farmed.
  * @param acorns The acorns left to plant today
  * @param fishy The Fishy turns available
  * @param noPlant Zones that get no acorns
@@ -34660,9 +34660,6 @@ function planPearls(acorns, fishy) {
     var tiers = tierProbe(target);
     var site = acornSite(target.location);
     var plant = site.kinds.length || noPlant.has(target.location) ? [] : acorns >= 2 ? ["B", "R"] : acorns === 1 ? ["R"] : [];
-    if (moxieMargin(target.location, [].concat(_toConsumableArray(site.kinds), _toConsumableArray(plant))) < 10) {
-      plant = plant.filter(kind => kind !== "R");
-    }
     var fightValue = (t, kinds, fights) => {
       var zydeco = kinds.includes("Z") ? 30 : 0;
       var pressure = info(target.location).pressure + zydeco;
@@ -34729,7 +34726,7 @@ function planPearls(acorns, fishy) {
       adventures: 0,
       net: -Infinity
     });
-    var farm = best.net > 0 && moxieMargin(target.location, kinds) >= 0;
+    var farm = best.net > 0;
     if (farm) fishy = Math.max(0, fishy - best.fights);else if (plant.length) unused.push(target.location);
     var summary = `Pearl plan for ${target.location}: ${options.map(o => `${o.resistance} res, ${o.fights} fights, net ${Math.round(o.net)}`).join("; ") || "no tier reaches 12 resistance"}. ${farm ? `Farming at ${best.resistance} res over ${best.adventures} adventures` : "Skipping"}; acorns ${acornNames(site.kinds)}${farm && plant.length ? `, planting ${acornNames(plant)}` : ""}.`;
     return _objectSpread2(_objectSpread2({
@@ -35415,12 +35412,17 @@ function plantingKill(location, kinds) {
 }
 
 /**
+ * @returns A delevel when Moxie is within 10 of the zone's toughest monster, counting Monster Level, or when `needsDelevel` says so for any of its monsters
+ */
+var zoneDelevel = (location, kinds) => Macro.externalIf(moxieMargin(location, kinds) < 10 || pearlMonsters(location, kinds).some(needsDelevel), Macro.delevel());
+
+/**
  * Plant the acorns on a zone monster while HP holds, kill it, and run if the kill falls short. Any other monster, or a failed run, gets garbo's usual kill.
  */
 function plantingMacro(location, kinds) {
   var _plantingKill;
   var cast = kind => Macro.if_("!hppercentbelow 50", Macro.trySkill(acornSkill(kind)));
-  return Macro.if_(pearlMonsters(location, ["R"]), Macro.externalIf(kinds.includes("B"), Macro.if_(chiassoTarget(location), cast("B"))).externalIf(kinds.includes("R"), cast("R")).externalIf(kinds.includes("Z"), cast("Z")).step(((_plantingKill = plantingKill(location, kinds)) === null || _plantingKill === void 0 ? void 0 : _plantingKill.macro) ?? new Macro()).runaway()).meatKill();
+  return Macro.if_(pearlMonsters(location, ["R"]), zoneDelevel(location, ["R"]).externalIf(kinds.includes("B"), Macro.if_(chiassoTarget(location), cast("B"))).externalIf(kinds.includes("R"), cast("R")).externalIf(kinds.includes("Z"), cast("Z")).step(((_plantingKill = plantingKill(location, kinds)) === null || _plantingKill === void 0 ? void 0 : _plantingKill.macro) ?? new Macro()).runaway()).meatKill();
 }
 var pearlStrategy = macro => new GarboStrategy(macro, macro, () => true, {
   innateWanderer: () => Macro.basicCombat()
@@ -35471,14 +35473,11 @@ function zoneTasks(target) {
       progressBefore = get$2(target.progressPref);
     },
     do: () => {
-      if (kolmafia.myHp() < 0.9 * kolmafia.myMaxhp()) {
-        kolmafia.print(`Can't plant acorns in ${location} safely now.`, HIGHLIGHT);
-      } else if (moxieMargin(location) < 10) {
-        kolmafia.print(`Moxie is too low to plant acorns in ${location} safely.`, HIGHLIGHT);
-      } else {
+      if (kolmafia.myHp() >= 0.9 * kolmafia.myMaxhp()) {
         kolmafia.adv1(location, -1, "");
         return;
       }
+      kolmafia.print(`Can't plant acorns in ${location} safely now.`, HIGHLIGHT);
       plantAttempts.set(location, PLANT_ATTEMPTS);
       planting = [];
     },
@@ -35536,7 +35535,7 @@ function zoneTasks(target) {
     },
     do: location,
     choices: () => wanderer().getChoices(location),
-    combat: pearlStrategy(() => Macro.externalIf(moxieMargin(location) < 10 || pearlMonsters(location).some(needsDelevel), Macro.delevel()).meatKill()),
+    combat: pearlStrategy(() => zoneDelevel(location).meatKill()),
     post: () => noteCow(location, observeAcornFight(location)),
     spendsTurn: true,
     sobriety: "sober"
