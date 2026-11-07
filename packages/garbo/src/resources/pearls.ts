@@ -273,7 +273,7 @@ const pearlDropValue = (monster: Monster, multiplier: number) =>
  * Price each open zone's pearl: P - adventures * VOA + fights * E(t) - plant risk, where E(t) is the meat and drops of an average fight in the tier's outfit, with acorn sea cows mixed in.
  * A zone expects no more sea cows than are left of the day's limit.
  * Zones go fewest fights first, sharing the free Fishy; a fight without Fishy costs two adventures.
- * A zone is farmed only when Moxie matches its toughest monster, and acorns go only to zones that end up farmed.
+ * Acorns go only to zones that end up farmed.
  * @param acorns The acorns left to plant today
  * @param fishy The Fishy turns available
  * @param noPlant Zones that get no acorns
@@ -307,9 +307,6 @@ export function planPearls(
           : acorns === 1
             ? ["R"]
             : [];
-    if (moxieMargin(target.location, [...site.kinds, ...plant]) < 10) {
-      plant = plant.filter((kind) => kind !== "R");
-    }
     const fightValue = (t: Tier, kinds: AcornKind[], fights: number) => {
       const zydeco = kinds.includes("Z") ? 30 : 0;
       const pressure = info(target.location).pressure + zydeco;
@@ -386,7 +383,7 @@ export function planPearls(
         adventures: 0,
         net: -Infinity,
       });
-      const farm = best.net > 0 && moxieMargin(target.location, kinds) >= 0;
+      const farm = best.net > 0;
       if (farm) fishy = Math.max(0, fishy - best.fights);
       else if (plant.length) unused.push(target.location);
       const summary = `Pearl plan for ${target.location}: ${options.map((o) => `${o.resistance} res, ${o.fights} fights, net ${Math.round(o.net)}`).join("; ") || "no tier reaches 12 resistance"}. ${farm ? `Farming at ${best.resistance} res over ${best.adventures} adventures` : "Skipping"}; acorns ${acornNames(site.kinds)}${farm && plant.length ? `, planting ${acornNames(plant)}` : ""}.`;

@@ -267,6 +267,16 @@ function plantingKill(
 }
 
 /**
+ * @returns A delevel when Moxie is within 10 of the zone's toughest monster, counting Monster Level, or when `needsDelevel` says so for any of its monsters
+ */
+const zoneDelevel = (location: Location, kinds?: AcornKind[]) =>
+  Macro.externalIf(
+    moxieMargin(location, kinds) < 10 ||
+      pearlMonsters(location, kinds).some(needsDelevel),
+    Macro.delevel(),
+  );
+
+/**
  * Plant the acorns on a zone monster while HP holds, kill it, and run if the kill falls short. Any other monster, or a failed run, gets garbo's usual kill.
  */
 function plantingMacro(location: Location, kinds: AcornKind[]): Macro {
@@ -274,10 +284,11 @@ function plantingMacro(location: Location, kinds: AcornKind[]): Macro {
     Macro.if_("!hppercentbelow 50", Macro.trySkill(acornSkill(kind)));
   return Macro.if_(
     pearlMonsters(location, ["R"]),
-    Macro.externalIf(
-      kinds.includes("B"),
-      Macro.if_(chiassoTarget(location), cast("B")),
-    )
+    zoneDelevel(location, ["R"])
+      .externalIf(
+        kinds.includes("B"),
+        Macro.if_(chiassoTarget(location), cast("B")),
+      )
       .externalIf(kinds.includes("R"), cast("R"))
       .externalIf(kinds.includes("Z"), cast("Z"))
       .step(plantingKill(location, kinds)?.macro ?? new Macro())
@@ -347,17 +358,11 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
       progressBefore = get(target.progressPref);
     },
     do: () => {
-      if (myHp() < 0.9 * myMaxhp()) {
-        print(`Can't plant acorns in ${location} safely now.`, HIGHLIGHT);
-      } else if (moxieMargin(location) < 10) {
-        print(
-          `Moxie is too low to plant acorns in ${location} safely.`,
-          HIGHLIGHT,
-        );
-      } else {
+      if (myHp() >= 0.9 * myMaxhp()) {
         adv1(location, -1, "");
         return;
       }
+      print(`Can't plant acorns in ${location} safely now.`, HIGHLIGHT);
       plantAttempts.set(location, PLANT_ATTEMPTS);
       planting = [];
     },
@@ -420,13 +425,7 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
     },
     do: location,
     choices: () => wanderer().getChoices(location),
-    combat: pearlStrategy(() =>
-      Macro.externalIf(
-        moxieMargin(location) < 10 ||
-          pearlMonsters(location).some(needsDelevel),
-        Macro.delevel(),
-      ).meatKill(),
-    ),
+    combat: pearlStrategy(() => zoneDelevel(location).meatKill()),
     post: () => noteCow(location, observeAcornFight(location)),
     spendsTurn: true,
     sobriety: "sober",
