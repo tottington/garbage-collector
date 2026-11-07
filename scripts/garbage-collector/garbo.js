@@ -34660,15 +34660,21 @@ function planPearls(acorns, fishy) {
     var tiers = tierProbe(target);
     var site = acornSite(target.location);
     var plant = site.kinds.length || noPlant.has(target.location) ? [] : acorns >= 2 ? ["B", "R"] : acorns === 1 ? ["R"] : [];
-    var fightValue = (t, kinds, fights) => {
+    // The natives a fight can meet, leaving out banished ones and any in `without`
+    var natives = function natives(kinds) {
+      var without = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+      var acornBanished = kinds.includes("B") ? chiassoTarget(target.location) : site.banished;
+      return kolmafia.getMonsters(target.location).filter(monster => monster !== cow && monster !== acornBanished && !kolmafia.isBanished(monster) && !without.includes(monster));
+    };
+    var fightValue = function fightValue(t, kinds, fights) {
+      var without = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : [];
       var zydeco = kinds.includes("Z") ? 30 : 0;
       var pressure = info(target.location).pressure + zydeco;
       var multiplier = Math.max(0, 100 + t.meat + Math.min(0, pressure + meatReduction)) / 100;
       var itemMultiplier = Math.max(0, 100 + t.item + Math.min(0, pressure + itemReduction)) / 100;
-      var banished = kinds.includes("B") ? chiassoTarget(target.location) : site.banished;
-      var natives = kolmafia.getMonsters(target.location).filter(monster => monster !== cow && monster !== banished);
-      var share = kinds.includes("R") && !acornCowsGone() && (cowlessFights.get(target.location) ?? 0) < 8 ? Math.min(2 / (2 + natives.length), cowsLeft / fights) : 0;
-      var nativeValue = mean(natives, m => (m.minMeat + m.maxMeat) / 2 * multiplier + pearlDropValue(m, itemMultiplier));
+      var zoneNatives = natives(kinds, without);
+      var share = kinds.includes("R") && !acornCowsGone() && (cowlessFights.get(target.location) ?? 0) < 8 ? Math.min(2 / (2 + zoneNatives.length), cowsLeft / fights) : 0;
+      var nativeValue = mean(zoneNatives, m => (m.minMeat + m.maxMeat) / 2 * multiplier + pearlDropValue(m, itemMultiplier));
       return share * (300 * multiplier + pearlDropValue(cow, itemMultiplier)) + (1 - share) * nativeValue;
     };
     var top = tiers[tiers.length - 1];
@@ -34682,6 +34688,7 @@ function planPearls(acorns, fishy) {
       tiers,
       site,
       plant,
+      natives,
       fightValue
     };
   });
@@ -34707,6 +34714,7 @@ function planPearls(acorns, fishy) {
       tiers = _ref2.tiers,
       site = _ref2.site,
       plant = _ref2.plant,
+      natives = _ref2.natives,
       fightValue = _ref2.fightValue;
     var kinds = [].concat(_toConsumableArray(site.kinds), _toConsumableArray(plant));
     var options = tiers.map(t => {
@@ -34728,11 +34736,24 @@ function planPearls(acorns, fishy) {
     });
     var farm = best.net > 0;
     if (farm) fishy = Math.max(0, fishy - best.fights);else if (plant.length) unused.push(target.location);
-    var summary = `Pearl plan for ${target.location}: ${options.map(o => `${o.resistance} res, ${o.fights} fights, net ${Math.round(o.net)}`).join("; ") || "no tier reaches 12 resistance"}. ${farm ? `Farming at ${best.resistance} res over ${best.adventures} adventures` : "Skipping"}; acorns ${acornNames(site.kinds)}${farm && plant.length ? `, planting ${acornNames(plant)}` : ""}.`;
+    // Add natives to banish, best first, while each one raises the value of the zone's average fight and one native is left
+    var tier = tiers.find(t => t.resistance === best.resistance);
+    var banish = [];
+    var _loop = function _loop() {
+      var value = without => fightValue(tier, kinds, best.fights, without);
+      var next = maxBy(natives(kinds, banish), monster => value([].concat(banish, [monster])));
+      if (value([].concat(banish, [next])) <= value(banish)) return 1; // break
+      banish.push(next);
+    };
+    while (farm && tier && natives(kinds, banish).length > 1) {
+      if (_loop()) break;
+    }
+    var summary = `Pearl plan for ${target.location}: ${options.map(o => `${o.resistance} res, ${o.fights} fights, net ${Math.round(o.net)}`).join("; ") || "no tier reaches 12 resistance"}. ${farm ? `Farming at ${best.resistance} res over ${best.adventures} adventures` : "Skipping"}; acorns ${acornNames(site.kinds)}${farm && plant.length ? `, planting ${acornNames(plant)}` : ""}${banish.length ? `; spare banishes for ${banish.join(", ")}` : ""}.`;
     return _objectSpread2(_objectSpread2({
       target
     }, best), {}, {
       plant: farm ? plant : [],
+      banish,
       farm,
       summary
     });
@@ -35424,6 +35445,14 @@ function plantingMacro(location, kinds) {
   var cast = kind => Macro.if_("!hppercentbelow 50", Macro.trySkill(acornSkill(kind)));
   return Macro.if_(pearlMonsters(location, ["R"]), zoneDelevel(location, ["R"]).externalIf(kinds.includes("B"), Macro.if_(chiassoTarget(location), cast("B"))).externalIf(kinds.includes("R"), cast("R")).externalIf(kinds.includes("Z"), cast("Z")).step(((_plantingKill = plantingKill(location, kinds)) === null || _plantingKill === void 0 ? void 0 : _plantingKill.macro) ?? new Macro()).runaway()).meatKill();
 }
+
+/**
+ * @returns A free banish that needs no change of gear or familiar
+ */
+var spareBanish = () => tryFindBanish({
+  noRequirements: () => true,
+  noFamiliar: () => true
+});
 var pearlStrategy = macro => new GarboStrategy(macro, macro, () => true, {
   innateWanderer: () => Macro.basicCombat()
 });
@@ -35440,6 +35469,10 @@ function zoneTasks(target) {
   var toPlant = () => {
     var _zone;
     return (((_zone = zone()) === null || _zone === void 0 ? void 0 : _zone.plant) ?? []).filter(kind => !acornSite(location).kinds.includes(kind));
+  };
+  var banishTargets = () => {
+    var _zone2;
+    return (((_zone2 = zone()) === null || _zone2 === void 0 ? void 0 : _zone2.banish) ?? []).filter(monster => !kolmafia.isBanished(monster));
   };
   var planting = [];
   var acornsBefore = null;
@@ -35506,12 +35539,13 @@ function zoneTasks(target) {
     ready: isCurrent,
     completed: () => get$2(target.completionPref),
     prepare: () => {
-      var _zone2;
+      var _zone3, _spareBanish;
       started.add(location);
       getFreeFishy();
       if (!(kolmafia.totalTurnsPlayed() % 11)) meatMood().execute(estimatedGarboTurns());
       var worn = kolmafia.numericModifier(`${target.maximizeElement} Resistance`);
-      if (worn >= (((_zone2 = zone()) === null || _zone2 === void 0 ? void 0 : _zone2.resistance) ?? 0)) wornResistance.delete(location);else wornResistance.set(location, worn);
+      if (worn >= (((_zone3 = zone()) === null || _zone3 === void 0 ? void 0 : _zone3.resistance) ?? 0)) wornResistance.delete(location);else wornResistance.set(location, worn);
+      if (banishTargets().length) (_spareBanish = spareBanish()) === null || _spareBanish === void 0 || _spareBanish.prepare();
     },
     effects: resistanceBuffs,
     outfit: () => {
@@ -35535,8 +35569,18 @@ function zoneTasks(target) {
     },
     do: location,
     choices: () => wanderer().getChoices(location),
-    combat: pearlStrategy(() => zoneDelevel(location).meatKill()),
-    post: () => noteCow(location, observeAcornFight(location)),
+    combat: pearlStrategy(() => {
+      var targets = banishTargets();
+      var banish = targets.length ? spareBanish() : null;
+      return (banish ? Macro.if_(targets, banish.macro) : new Macro()).step(zoneDelevel(location)).meatKill();
+    }),
+    post: () => {
+      var _zone4;
+      var monster = kolmafia.toMonster(get$2("lastEncounter"));
+      // A banished native makes no progress and says nothing about the sea cows
+      if ((_zone4 = zone()) !== null && _zone4 !== void 0 && _zone4.banish.includes(monster) && kolmafia.isBanished(monster)) return;
+      noteCow(location, observeAcornFight(location));
+    },
     spendsTurn: true,
     sobriety: "sober"
   };
