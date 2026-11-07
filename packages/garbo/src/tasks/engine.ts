@@ -29,6 +29,7 @@ import {
   equip,
   fileToBuffer,
   itemAmount,
+  Location,
   myFamiliar,
   print,
   todayToString,
@@ -171,7 +172,9 @@ abstract class BaseGarboContextEngine<
   }
 
   prepare(task: GarboTask<Context>): void {
-    if ("combat" in task) safeRestore();
+    if ("combat" in task) {
+      safeRestore(task.do instanceof Location ? task.do : undefined);
+    }
     super.prepare(task);
   }
 

@@ -2,6 +2,7 @@ import { stash } from "../stash";
 import { Outfit, OutfitSpec } from "grimoire-kolmafia";
 import {
   availableAmount,
+  booleanModifier,
   canAdventure,
   canEquip,
   cliExecute,
@@ -147,6 +148,13 @@ export function useUPCsIfNeeded({ familiar }: Outfit): void {
 
 export const waterBreathingEquipment = $items`The Crown of Ed the Undying, aerated diving helmet, crappy Mer-kin mask, Mer-kin gladiator mask, Mer-kin scholar mask, old SCUBA tank`;
 export const familiarWaterBreathingEquipment = $items`das boot, little bitty bathysphere`;
+
+/**
+ * @returns Whether the character breathes underwater now or owns gear that lets them
+ */
+export const canBreatheUnderwater = () =>
+  booleanModifier("Adventure Underwater") ||
+  waterBreathingEquipment.some((item) => have(item) && canEquip(item));
 
 export function familiarSlotNeededForBreathing(
   location: Location,

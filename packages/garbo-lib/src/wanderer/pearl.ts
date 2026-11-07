@@ -11,19 +11,20 @@ import {
   $item,
   $location,
   BooleanProperty,
+  clamp,
   get,
   have,
   NumericProperty,
 } from "libram";
 
-type PearlTarget = {
+export type PearlTarget = {
   location: Location;
   completionPref: BooleanProperty;
   progressPref: NumericProperty;
   estimatedProgress: number;
   maximizeElement: Element;
 };
-const PearlTargets: PearlTarget[] = [
+export const PearlTargets: PearlTarget[] = [
   // estimating progress at some lower rates, 3.3 is with just passives.
   // TODO value resistances when targeting these, maybe make a pref or something that records our expected amount?
   {
@@ -78,13 +79,21 @@ const PearlTargets: PearlTarget[] = [
   return get("valueOfAdventure", 4000) * (turns(resistance) - turns(resistance + 1));
 } */
 
-function turnsRemainingToComplete(
-  progressPref: string,
-  estimatedProgress: number,
-) {
-  const progressRemaining = 100 - get(progressPref, 0);
-  return Math.ceil(progressRemaining / estimatedProgress);
-}
+/**
+ * @param resistance The zone element's resistance worn in the fight
+ * @returns The pearl progress a won fight makes: 1.7% per 3 points of resistance, from 1.7% up to 10% at 18
+ */
+export const pearlProgress = (resistance: number) =>
+  clamp(1.7 * Math.floor(resistance / 3), 1.7, 10);
+
+/**
+ * @param progress The pearl progress each fight makes
+ * @returns The fights left to finish the zone's pearl
+ */
+export const pearlFightsLeft = (
+  target: PearlTarget,
+  progress = target.estimatedProgress,
+) => Math.ceil((100 - get(target.progressPref)) / progress);
 
 export function pearlFactory(
   type: DraggableFight,
@@ -96,7 +105,7 @@ export function pearlFactory(
       (t) =>
         !get(t.completionPref) &&
         wandererTurnsAvailableToday(options, t.location, true) >=
-          turnsRemainingToComplete(t.progressPref, t.estimatedProgress),
+          pearlFightsLeft(t),
     ).map(
       (t) =>
         new WandererTarget({

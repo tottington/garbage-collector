@@ -2,7 +2,6 @@ import {
   adv1,
   canAdventure,
   canEquip,
-  cliExecute,
   getWorkshed,
   Location,
   mallPrice,
@@ -54,6 +53,7 @@ import { GarboStrategy } from "../../combatStrategy";
 import { globalOptions } from "../../config";
 import { wanderer } from "../../garboWanderer";
 import {
+  getFreeFishy,
   kramcoGuaranteed,
   MEAT_TARGET_MULTIPLIER,
   romanticMonsterImpossible,
@@ -62,8 +62,8 @@ import {
 } from "../../lib";
 import { freeFightOutfit, FreeFightOutfitMenuOptions } from "../../outfit/free";
 import {
+  canBreatheUnderwater,
   familiarWaterBreathingEquipment,
-  waterBreathingEquipment,
 } from "../../outfit/lib";
 import { meatTargetOutfit } from "../../outfit/target";
 import { ThesisTask } from "../thesis";
@@ -123,12 +123,7 @@ function shouldGoUnderwater(): boolean {
     visitUrl("place.php?whichplace=sea_oldman&action=oldman_oldman");
   }
 
-  if (
-    !getModifier("Adventure Underwater") &&
-    waterBreathingEquipment.every((item) => !have(item) || !canEquip(item))
-  ) {
-    return false;
-  }
+  if (!canBreatheUnderwater()) return false;
   if (
     !getModifier("Underwater Familiar") &&
     familiarWaterBreathingEquipment.every((item) => !have(item))
@@ -156,17 +151,7 @@ function shouldGoUnderwater(): boolean {
 
   if (have($effect`Fishy`)) return true;
   if (willYachtzee()) return false;
-  if (have($item`fishy pipe`) && !get("_fishyPipeUsed")) {
-    use($item`fishy pipe`);
-    if (have($effect`Fishy`)) return true;
-  }
-
-  if (get("skateParkStatus") === "ice" && !get("_skateBuff1")) {
-    cliExecute("skate lutz");
-    if (have($effect`Fishy`)) return true;
-  }
-
-  return false;
+  return getFreeFishy();
 }
 
 /**
@@ -228,7 +213,10 @@ const BarfTurnTasks: FarmingTask[] = [
     outfit: () =>
       meatTargetOutfit(
         sober() ? {} : { offhand: $item`Drunkula's wineglass` },
-        get("nextSpookyravenStephenRoom") ?? $location.none,
+        {
+          location: get("nextSpookyravenStephenRoom") ?? $location.none,
+          target: $monster`Stephen Spookyraven`,
+        },
       ),
     spendsTurn: isSteve,
     combat: new GarboStrategy(() =>
@@ -325,7 +313,14 @@ const BarfTurnTasks: FarmingTask[] = [
     ready: shouldGoUnderwater,
     acquire: () => [{ item: $item`pulled green taffy` }],
     do: $location`The Briny Deeps`,
-    outfit: () => meatTargetOutfit({}, $location`The Briny Deeps`),
+    outfit: () =>
+      meatTargetOutfit(
+        {},
+        {
+          location: $location`The Briny Deeps`,
+          target: SourceTerminal.getDigitizeMonster() ?? $monster.none,
+        },
+      ),
     combat: new GarboStrategy(
       ...digitizeMacros(Macro.item($item`pulled green taffy`)),
     ),
@@ -573,6 +568,7 @@ const BarfTurnTasks: FarmingTask[] = [
   ),
   {
     name: "Yachtzee (Cooldown ready)",
+    ready: () => romanticMonsterImpossible(),
     completed: () => get("encountersUntilYachtzeeChoice") > 0,
     outfit: () => {
       setLocation($location`The Sunken Party Yacht`);
