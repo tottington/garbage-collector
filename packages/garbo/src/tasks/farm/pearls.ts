@@ -3,6 +3,7 @@ import { PearlTarget, PearlTargets } from "garbo-lib";
 import {
   adv1,
   canAdventure,
+  isBanished,
   Item,
   Location,
   mpCost,
@@ -34,6 +35,7 @@ import {
   PeridotOfPeril,
   set,
   sum,
+  tryFindBanish,
 } from "libram";
 import { Macro } from "../../combat";
 import { GarboStrategy } from "../../combatStrategy";
@@ -296,6 +298,12 @@ function plantingMacro(location: Location, kinds: AcornKind[]): Macro {
   ).meatKill();
 }
 
+/**
+ * @returns A free banish that needs no change of gear or familiar
+ */
+const spareBanish = () =>
+  tryFindBanish({ noRequirements: () => true, noFamiliar: () => true });
+
 const pearlStrategy = (macro: () => Macro) =>
   new GarboStrategy(macro, macro, () => true, {
     innateWanderer: () => Macro.basicCombat(),
@@ -309,6 +317,8 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
     (zone()?.plant ?? []).filter(
       (kind) => !acornSite(location).kinds.includes(kind),
     );
+  const banishTargets = () =>
+    (zone()?.banish ?? []).filter((monster) => !isBanished(monster));
   let planting: AcornKind[] = [];
   let acornsBefore: number | null = null;
   let progressBefore = 0;
@@ -406,6 +416,7 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
       const worn = numericModifier(`${target.maximizeElement} Resistance`);
       if (worn >= (zone()?.resistance ?? 0)) wornResistance.delete(location);
       else wornResistance.set(location, worn);
+      if (banishTargets().length) spareBanish()?.prepare();
     },
     effects: resistanceBuffs,
     outfit: () => {
@@ -425,8 +436,19 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
     },
     do: location,
     choices: () => wanderer().getChoices(location),
-    combat: pearlStrategy(() => zoneDelevel(location).meatKill()),
-    post: () => noteCow(location, observeAcornFight(location)),
+    combat: pearlStrategy(() => {
+      const targets = banishTargets();
+      const banish = targets.length ? spareBanish() : null;
+      return (banish ? Macro.if_(targets, banish.macro) : new Macro())
+        .step(zoneDelevel(location))
+        .meatKill();
+    }),
+    post: () => {
+      const monster = toMonster(get("lastEncounter"));
+      // A banished native makes no progress and says nothing about the sea cows
+      if (zone()?.banish.includes(monster) && isBanished(monster)) return;
+      noteCow(location, observeAcornFight(location));
+    },
     spendsTurn: true,
     sobriety: "sober",
   };

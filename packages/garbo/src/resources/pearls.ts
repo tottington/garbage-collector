@@ -9,6 +9,7 @@ import {
   canAdventure,
   Element,
   getMonsters,
+  isBanished,
   itemDropsArray,
   Location,
   maximize,
@@ -28,6 +29,7 @@ import {
   get,
   getActiveEffects,
   have,
+  maxBy,
   sum,
 } from "libram";
 import { globalOptions } from "../config";
@@ -177,6 +179,8 @@ export type ZonePlan = {
   adventures: number;
   net: number;
   plant: AcornKind[];
+  // Natives worth a spare banish, most valuable to banish first
+  banish: Monster[];
   farm: boolean;
   summary: string;
 };
@@ -307,27 +311,40 @@ export function planPearls(
           : acorns === 1
             ? ["R"]
             : [];
-    const fightValue = (t: Tier, kinds: AcornKind[], fights: number) => {
+    // The natives a fight can meet, leaving out banished ones and any in `without`
+    const natives = (kinds: AcornKind[], without: Monster[] = []) => {
+      const acornBanished = kinds.includes("B")
+        ? chiassoTarget(target.location)
+        : site.banished;
+      return getMonsters(target.location).filter(
+        (monster) =>
+          monster !== cow &&
+          monster !== acornBanished &&
+          !isBanished(monster) &&
+          !without.includes(monster),
+      );
+    };
+    const fightValue = (
+      t: Tier,
+      kinds: AcornKind[],
+      fights: number,
+      without: Monster[] = [],
+    ) => {
       const zydeco = kinds.includes("Z") ? 30 : 0;
       const pressure = info(target.location).pressure + zydeco;
       const multiplier =
         Math.max(0, 100 + t.meat + Math.min(0, pressure + meatReduction)) / 100;
       const itemMultiplier =
         Math.max(0, 100 + t.item + Math.min(0, pressure + itemReduction)) / 100;
-      const banished = kinds.includes("B")
-        ? chiassoTarget(target.location)
-        : site.banished;
-      const natives = getMonsters(target.location).filter(
-        (monster) => monster !== cow && monster !== banished,
-      );
+      const zoneNatives = natives(kinds, without);
       const share =
         kinds.includes("R") &&
         !acornCowsGone() &&
         (cowlessFights.get(target.location) ?? 0) < 8
-          ? Math.min(2 / (2 + natives.length), cowsLeft / fights)
+          ? Math.min(2 / (2 + zoneNatives.length), cowsLeft / fights)
           : 0;
       const nativeValue = mean(
-        natives,
+        zoneNatives,
         (m) =>
           ((m.minMeat + m.maxMeat) / 2) * multiplier +
           pearlDropValue(m, itemMultiplier),
@@ -348,7 +365,7 @@ export function planPearls(
       plant = [];
     }
     acorns -= plant.length;
-    return { target, tiers, site, plant, fightValue };
+    return { target, tiers, site, plant, natives, fightValue };
   });
 
   for (const zone of zones) {
@@ -365,7 +382,7 @@ export function planPearls(
   const unused: Location[] = [];
   const plans = zones
     .sort((a, b) => fightsAtTop(a) - fightsAtTop(b))
-    .map(({ target, tiers, site, plant, fightValue }) => {
+    .map(({ target, tiers, site, plant, natives, fightValue }) => {
       const kinds = [...site.kinds, ...plant];
       const options = tiers.map((t) => {
         const fights = fightsLeftAt(target, t.resistance);
@@ -386,8 +403,27 @@ export function planPearls(
       const farm = best.net > 0;
       if (farm) fishy = Math.max(0, fishy - best.fights);
       else if (plant.length) unused.push(target.location);
-      const summary = `Pearl plan for ${target.location}: ${options.map((o) => `${o.resistance} res, ${o.fights} fights, net ${Math.round(o.net)}`).join("; ") || "no tier reaches 12 resistance"}. ${farm ? `Farming at ${best.resistance} res over ${best.adventures} adventures` : "Skipping"}; acorns ${acornNames(site.kinds)}${farm && plant.length ? `, planting ${acornNames(plant)}` : ""}.`;
-      return { target, ...best, plant: farm ? plant : [], farm, summary };
+      // Add natives to banish, best first, while each one raises the value of the zone's average fight and one native is left
+      const tier = tiers.find((t) => t.resistance === best.resistance);
+      const banish: Monster[] = [];
+      while (farm && tier && natives(kinds, banish).length > 1) {
+        const value = (without: Monster[]) =>
+          fightValue(tier, kinds, best.fights, without);
+        const next = maxBy(natives(kinds, banish), (monster) =>
+          value([...banish, monster]),
+        );
+        if (value([...banish, next]) <= value(banish)) break;
+        banish.push(next);
+      }
+      const summary = `Pearl plan for ${target.location}: ${options.map((o) => `${o.resistance} res, ${o.fights} fights, net ${Math.round(o.net)}`).join("; ") || "no tier reaches 12 resistance"}. ${farm ? `Farming at ${best.resistance} res over ${best.adventures} adventures` : "Skipping"}; acorns ${acornNames(site.kinds)}${farm && plant.length ? `, planting ${acornNames(plant)}` : ""}${banish.length ? `; spare banishes for ${banish.join(", ")}` : ""}.`;
+      return {
+        target,
+        ...best,
+        plant: farm ? plant : [],
+        banish,
+        farm,
+        summary,
+      };
     });
 
   return unused.length
