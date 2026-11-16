@@ -173,7 +173,7 @@ abstract class BaseGarboContextEngine<
 
   prepare(task: GarboTask<Context>): void {
     if ("combat" in task) {
-      safeRestore(task.do instanceof Location ? task.do : undefined);
+      safeRestore(false, task.do instanceof Location ? task.do : undefined);
     }
     super.prepare(task);
   }

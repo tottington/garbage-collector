@@ -38,7 +38,7 @@ export function safeRestoreMpTarget(): number {
 /**
  * @param location The location of the coming fight, for its underwater HP threshold
  */
-export function safeRestore(location?: Location): void {
+export function safeRestore(removeBeatenUp = false, location?: Location): void {
   if (
     lastMonster() === $monster`Sssshhsssblllrrggghsssssggggrrgglsssshhssslblgl`
   ) {
@@ -49,9 +49,12 @@ export function safeRestore(location?: Location): void {
       "You lost your most recent combat! Check to make sure everything is alright before rerunning.",
     );
   } else if (have($effect`Beaten Up`)) {
-    throw new Error(
-      "Hey, you're beaten up, and that's a bad thing. Lick your wounds, handle your problems, and run me again when you feel ready.",
-    );
+    if (removeBeatenUp) uneffect($effect`Beaten Up`);
+    if (have($effect`Beaten Up`)) {
+      throw new Error(
+        "Hey, you're beaten up, and that's a bad thing. Lick your wounds, handle your problems, and run me again when you feel ready.",
+      );
+    }
   }
 
   const lowPercentageHealth =

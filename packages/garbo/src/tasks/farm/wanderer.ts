@@ -27,6 +27,7 @@ import {
   Counter,
   CrepeParachute,
   Delayed,
+  EverfullDarts,
   get,
   getModifier,
   getStep,
@@ -101,14 +102,18 @@ function wanderTask(
   base: Omit<FarmingTask, "outfit" | "do" | "choices" | "spendsTurn"> & {
     combat?: GarboStrategy;
   },
-  additionalOutfitOptions: FreeFightOutfitMenuOptions = {},
+  additionalOutfitOptions: Delayed<FreeFightOutfitMenuOptions> = {},
 ): FarmingTask {
   return {
     wanderer: details,
     do: ({ wanderTarget }) => wanderTarget.location,
     choices: ({ wanderTarget }) => wanderTarget.choices,
     outfit: ({ wanderTarget }) =>
-      freeFightOutfit(undelay(spec), wanderTarget, additionalOutfitOptions),
+      freeFightOutfit(
+        undelay(spec),
+        wanderTarget,
+        undelay(additionalOutfitOptions),
+      ),
     spendsTurn: false,
     combat: new GarboStrategy(() => Macro.basicCombat()),
     ...base,
@@ -470,7 +475,7 @@ const BarfTurnTasks: FarmingTask[] = [
   ),
   wanderTask(
     "conditional freefight",
-    {
+    () => ({
       offhand:
         guaranteedBullseye() || have($item`spring shoes`)
           ? []
@@ -481,7 +486,7 @@ const BarfTurnTasks: FarmingTask[] = [
           ? []
           : $item`spring shoes`,
       modifier: guaranteedBullseye() ? [] : "Monster Level",
-    },
+    }),
     {
       name: "Darts: Bullseye",
       ready: safeToAttemptBullseye,
@@ -495,6 +500,11 @@ const BarfTurnTasks: FarmingTask[] = [
       ),
       sobriety: "sober",
       duplicate: true,
+    },
+    () => {
+      const bullseyeChance = EverfullDarts.bullseyeChance();
+      // A missed dart falls through to a freerun.
+      return { outcomes: { win: bullseyeChance, run: 1 - bullseyeChance } };
     },
   ),
   wanderTask(
