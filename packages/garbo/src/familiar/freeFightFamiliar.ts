@@ -12,7 +12,6 @@ import {
   have,
   maxBy,
   SkeletonOfCrimboPast,
-  Snapper,
   sum,
 } from "libram";
 
@@ -24,11 +23,17 @@ import {
   canOpenRedPresent,
   FamiliarMode,
   GeneralFamiliar,
+  snapperReasonable,
   snapperValue,
   timeToMeatify,
 } from "./lib";
 import { meatFamiliar } from "./meatFamiliar";
-import { gooseDroneEligible, valueDrops } from "../lib";
+import {
+  CombatOutcomes,
+  combatOutcomeWeight,
+  gooseDroneEligible,
+  valueDrops,
+} from "../lib";
 import { globalOptions } from "../config";
 import { copyTargetCount } from "../target/fights";
 import { getToyCupidBowFamiliars } from "./toyCupidBowFamiliar";
@@ -42,6 +47,7 @@ export type FamiliarMenuOptions = Partial<{
   includeExperienceFamiliars: boolean;
   allowAttackFamiliars: boolean;
   mode: FamiliarMode;
+  outcomes: CombatOutcomes;
   equipmentForced: boolean;
   cupidBowValues: ReadonlyMap<Familiar, number>;
 }>;
@@ -55,12 +61,14 @@ export function menu(
     includeExperienceFamiliars = true,
     allowAttackFamiliars = true,
     mode = "free",
+    outcomes = mode === "run" ? "run" : "win",
     equipmentForced = false,
     cupidBowValues = equipmentForced ? new Map() : getCupidBowValues(adventure),
   } = {} as FamiliarMenuOptions,
 ): GeneralFamiliar[] {
   const { target } = toAdventure(adventure);
   const monsterRates = adventureTargetToWeightedMap(target);
+  const winWeight = combatOutcomeWeight(outcomes, ["win"]);
 
   const familiarMenu = [
     ...getConstantValueFamiliars(mode, monsterRates),
@@ -102,12 +110,12 @@ export function menu(
       });
     }
 
-    if (mode === "target" && Snapper.have()) {
+    if (snapperReasonable(mode)) {
       familiarMenu.push({
         familiar: $familiar`Red-Nosed Snapper`,
-        expectedValue: snapperValue(),
+        expectedValue: snapperValue(mode),
         leprechaunMultiplier: 0,
-        limit: "special",
+        limit: "none",
         worksOnFreeRun: false,
       });
     }
@@ -177,15 +185,22 @@ export function menu(
     worksOnFreeRun: true,
   });
 
-  return familiarMenu.filter(
-    ({ familiar, worksOnFreeRun }) =>
-      (mode !== "run" || worksOnFreeRun) &&
-      (allowAttackFamiliars ||
-        !(familiar.physicalDamage || familiar.elementalDamage)) &&
-      !excludeFamiliar.some(
-        (excludedFamiliar) => excludedFamiliar === familiar,
-      ),
-  );
+  return familiarMenu
+    .filter(
+      ({ familiar, worksOnFreeRun }) =>
+        (winWeight > 0 || worksOnFreeRun) &&
+        (allowAttackFamiliars ||
+          !(familiar.physicalDamage || familiar.elementalDamage)) &&
+        !excludeFamiliar.some(
+          (excludedFamiliar) => excludedFamiliar === familiar,
+        ),
+    )
+    .map((candidate) => ({
+      ...candidate,
+      // In-combat rewards and Cupid bow progress survive an escape.
+      expectedValue:
+        candidate.expectedValue * (candidate.worksOnFreeRun ? 1 : winWeight),
+    }));
 }
 
 export function getAllJellyfishDrops(): {

@@ -1,11 +1,8 @@
 import {
   Effect,
-  equippedItem,
   haveEquipped,
   Item,
-  itemType,
   Monster,
-  myBuffedstat,
   myDaycount,
   myId,
   myMaxhp,
@@ -24,8 +21,6 @@ import {
   $monster,
   $monsters,
   $skill,
-  $slot,
-  $stat,
   ActionSource,
   ChestMimic,
   CombatLoversLocket,
@@ -40,7 +35,11 @@ import {
 import { Macro } from "../combat";
 import { GarboStrategy } from "../combatStrategy";
 import { globalOptions } from "../config";
-import { freeRunConstraints, tryFindFreeRunOrBanish } from "../lib";
+import {
+  freeRunConstraints,
+  needsDelevel,
+  tryFindFreeRunOrBanish,
+} from "../lib";
 import { safeRestoreMpTarget } from "../restore";
 import { GarboTask } from "./engine";
 
@@ -130,13 +129,7 @@ function mimicEscape(): ActionSource | undefined {
 }
 
 function shouldDelevel(monster: Monster): boolean {
-  return (
-    monster.attributes.includes("Scale:") ||
-    myBuffedstat($stat`Moxie`) < monster.baseAttack + 10 ||
-    (have($skill`Hero of the Half-Shell`) &&
-      itemType(equippedItem($slot`offhand`)) === "shield" &&
-      myBuffedstat($stat`Muscle`) < monster.baseAttack + 10)
-  );
+  return monster.attributes.includes("Scale:") || needsDelevel(monster);
 }
 
 function monsterRequirements(monster: Monster): Requirement {

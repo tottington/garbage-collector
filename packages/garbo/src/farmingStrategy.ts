@@ -2,14 +2,12 @@ import { OutfitSpec } from "grimoire-kolmafia";
 import {
   Effect,
   effectFact,
-  equippedItem,
   getMonsters,
   isBanished,
-  itemType,
   Location,
   mallPrice,
   Monster,
-  myBuffedstat,
+  Phylum,
 } from "kolmafia";
 import { GarboStrategy } from "./combatStrategy";
 import {
@@ -21,8 +19,6 @@ import {
   $monster,
   $monsters,
   $skill,
-  $slot,
-  $stat,
   adventureTargetToWeightedMap,
   Delayed,
   get,
@@ -37,7 +33,7 @@ import { FarmingMethod, globalOptions } from "./config";
 import { completeBarfQuest } from "./resources/realm";
 import { FarmingContext } from "./tasks/context";
 import { garboValue } from "./garboValue";
-import { expectedDropValue, songboomMeat } from "./lib";
+import { expectedDropValue, needsDelevel, songboomMeat } from "./lib";
 
 export function averageRedTaffyValue(): number {
   return sum(
@@ -135,6 +131,16 @@ class FarmingStrategySkeleton {
 
   olfactMonster(): Monster | null {
     return this.shouldOlfact ? undelay(this.targetMonster) : null;
+  }
+
+  singlePhylumInZone(): Phylum | null {
+    const monsters = this.monsters().filter(
+      (m) => !this.banishMonsters.includes(m),
+    );
+
+    const phyla = new Set(monsters.map((m) => m.phylum));
+
+    return phyla.size === 1 ? monsters[0].phylum : null;
   }
 
   monsters(): Monster[] {
@@ -259,13 +265,7 @@ const THE_CORAL_CORRAL: FarmingStrategyOptions = {
       ),
     )
       .farmingBanish(banish)
-      .externalIf(
-        myBuffedstat($stat`Moxie`) < $monster`sea cow`.baseAttack + 10 ||
-          (have($skill`Hero of the Half-Shell`) &&
-            itemType(equippedItem($slot`offhand`)) === "shield" &&
-            myBuffedstat($stat`Muscle`) < $monster`sea cow`.baseAttack + 10),
-        Macro.delevel(),
-      )
+      .externalIf(needsDelevel($monster`sea cow`), Macro.delevel())
       .externalIf(redTaffyWorth(), Macro.tryItem($item`pulled red taffy`))
       .meatKill(),
 };
@@ -283,14 +283,7 @@ const THE_MARINARA_TRENCH: FarmingStrategyOptions = {
   outfit: underwaterOutfit,
   combat: ({ banish }) =>
     Macro.farmingBanish(banish)
-      .externalIf(
-        myBuffedstat($stat`Moxie`) < $monster`giant squid`.baseAttack + 10 ||
-          (have($skill`Hero of the Half-Shell`) &&
-            itemType(equippedItem($slot`offhand`)) === "shield" &&
-            myBuffedstat($stat`Muscle`) <
-              $monster`giant squid`.baseAttack + 10),
-        Macro.delevel(),
-      )
+      .externalIf(needsDelevel($monster`giant squid`), Macro.delevel())
       .externalIf(redTaffyWorth(), Macro.tryItem($item`pulled red taffy`))
       .meatKill(),
 };

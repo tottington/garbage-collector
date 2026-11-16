@@ -2,6 +2,7 @@ import {
   eat,
   inebrietyLimit,
   lastMonster,
+  Location,
   myHp,
   myInebriety,
   myMaxhp,
@@ -34,7 +35,10 @@ export function safeRestoreMpTarget(): number {
   return Math.min(myMaxmp(), 200);
 }
 
-export function safeRestore(): void {
+/**
+ * @param location The location of the coming fight, for its underwater HP threshold
+ */
+export function safeRestore(removeBeatenUp = false, location?: Location): void {
   if (
     lastMonster() === $monster`Sssshhsssblllrrggghsssssggggrrgglsssshhssslblgl`
   ) {
@@ -45,16 +49,20 @@ export function safeRestore(): void {
       "You lost your most recent combat! Check to make sure everything is alright before rerunning.",
     );
   } else if (have($effect`Beaten Up`)) {
-    throw new Error(
-      "Hey, you're beaten up, and that's a bad thing. Lick your wounds, handle your problems, and run me again when you feel ready.",
-    );
+    if (removeBeatenUp) uneffect($effect`Beaten Up`);
+    if (have($effect`Beaten Up`)) {
+      throw new Error(
+        "Hey, you're beaten up, and that's a bad thing. Lick your wounds, handle your problems, and run me again when you feel ready.",
+      );
+    }
   }
 
-  const lowPercentageHealth = FarmingStrategy.isUnderwater()
-    ? myInebriety() > inebrietyLimit()
-      ? 0.9
-      : 0.6
-    : 0.5;
+  const lowPercentageHealth =
+    FarmingStrategy.isUnderwater() || location?.environment === "underwater"
+      ? myInebriety() > inebrietyLimit()
+        ? 0.9
+        : 0.6
+      : 0.5;
 
   if (
     myHp() <

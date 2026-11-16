@@ -2,7 +2,6 @@ import {
   adv1,
   canAdventure,
   canEquip,
-  cliExecute,
   getWorkshed,
   Location,
   mallPrice,
@@ -28,6 +27,7 @@ import {
   Counter,
   CrepeParachute,
   Delayed,
+  EverfullDarts,
   get,
   getModifier,
   getStep,
@@ -54,6 +54,7 @@ import { GarboStrategy } from "../../combatStrategy";
 import { globalOptions } from "../../config";
 import { wanderer } from "../../garboWanderer";
 import {
+  getFreeFishy,
   kramcoGuaranteed,
   MEAT_TARGET_MULTIPLIER,
   romanticMonsterImpossible,
@@ -62,8 +63,8 @@ import {
 } from "../../lib";
 import { freeFightOutfit, FreeFightOutfitMenuOptions } from "../../outfit/free";
 import {
+  canBreatheUnderwater,
   familiarWaterBreathingEquipment,
-  waterBreathingEquipment,
 } from "../../outfit/lib";
 import { meatTargetOutfit } from "../../outfit/target";
 import { ThesisTask } from "../thesis";
@@ -101,14 +102,18 @@ function wanderTask(
   base: Omit<FarmingTask, "outfit" | "do" | "choices" | "spendsTurn"> & {
     combat?: GarboStrategy;
   },
-  additionalOutfitOptions: FreeFightOutfitMenuOptions = {},
+  additionalOutfitOptions: Delayed<FreeFightOutfitMenuOptions> = {},
 ): FarmingTask {
   return {
     wanderer: details,
     do: ({ wanderTarget }) => wanderTarget.location,
     choices: ({ wanderTarget }) => wanderTarget.choices,
     outfit: ({ wanderTarget }) =>
-      freeFightOutfit(undelay(spec), wanderTarget, additionalOutfitOptions),
+      freeFightOutfit(
+        undelay(spec),
+        wanderTarget,
+        undelay(additionalOutfitOptions),
+      ),
     spendsTurn: false,
     combat: new GarboStrategy(() => Macro.basicCombat()),
     ...base,
@@ -123,12 +128,7 @@ function shouldGoUnderwater(): boolean {
     visitUrl("place.php?whichplace=sea_oldman&action=oldman_oldman");
   }
 
-  if (
-    !getModifier("Adventure Underwater") &&
-    waterBreathingEquipment.every((item) => !have(item) || !canEquip(item))
-  ) {
-    return false;
-  }
+  if (!canBreatheUnderwater()) return false;
   if (
     !getModifier("Underwater Familiar") &&
     familiarWaterBreathingEquipment.every((item) => !have(item))
@@ -156,17 +156,7 @@ function shouldGoUnderwater(): boolean {
 
   if (have($effect`Fishy`)) return true;
   if (willYachtzee()) return false;
-  if (have($item`fishy pipe`) && !get("_fishyPipeUsed")) {
-    use($item`fishy pipe`);
-    if (have($effect`Fishy`)) return true;
-  }
-
-  if (get("skateParkStatus") === "ice" && !get("_skateBuff1")) {
-    cliExecute("skate lutz");
-    if (have($effect`Fishy`)) return true;
-  }
-
-  return false;
+  return getFreeFishy();
 }
 
 /**
@@ -228,7 +218,10 @@ const BarfTurnTasks: FarmingTask[] = [
     outfit: () =>
       meatTargetOutfit(
         sober() ? {} : { offhand: $item`Drunkula's wineglass` },
-        get("nextSpookyravenStephenRoom") ?? $location.none,
+        {
+          location: get("nextSpookyravenStephenRoom") ?? $location.none,
+          target: $monster`Stephen Spookyraven`,
+        },
       ),
     spendsTurn: isSteve,
     combat: new GarboStrategy(() =>
@@ -325,7 +318,14 @@ const BarfTurnTasks: FarmingTask[] = [
     ready: shouldGoUnderwater,
     acquire: () => [{ item: $item`pulled green taffy` }],
     do: $location`The Briny Deeps`,
-    outfit: () => meatTargetOutfit({}, $location`The Briny Deeps`),
+    outfit: () =>
+      meatTargetOutfit(
+        {},
+        {
+          location: $location`The Briny Deeps`,
+          target: SourceTerminal.getDigitizeMonster() ?? $monster.none,
+        },
+      ),
     combat: new GarboStrategy(
       ...digitizeMacros(Macro.item($item`pulled green taffy`)),
     ),
@@ -475,7 +475,7 @@ const BarfTurnTasks: FarmingTask[] = [
   ),
   wanderTask(
     "conditional freefight",
-    {
+    () => ({
       offhand:
         guaranteedBullseye() || have($item`spring shoes`)
           ? []
@@ -486,7 +486,7 @@ const BarfTurnTasks: FarmingTask[] = [
           ? []
           : $item`spring shoes`,
       modifier: guaranteedBullseye() ? [] : "Monster Level",
-    },
+    }),
     {
       name: "Darts: Bullseye",
       ready: safeToAttemptBullseye,
@@ -500,6 +500,11 @@ const BarfTurnTasks: FarmingTask[] = [
       ),
       sobriety: "sober",
       duplicate: true,
+    },
+    () => {
+      const bullseyeChance = EverfullDarts.bullseyeChance();
+      // A missed dart falls through to a freerun.
+      return { outcomes: { win: bullseyeChance, run: 1 - bullseyeChance } };
     },
   ),
   wanderTask(
@@ -573,6 +578,7 @@ const BarfTurnTasks: FarmingTask[] = [
   ),
   {
     name: "Yachtzee (Cooldown ready)",
+    ready: () => romanticMonsterImpossible(),
     completed: () => get("encountersUntilYachtzeeChoice") > 0,
     outfit: () => {
       setLocation($location`The Sunken Party Yacht`);

@@ -132,6 +132,11 @@ You can use multiple options in conjunction, e.g. "garbo nobarf ascend"',
       help: "skip eating and drinking anything as a part of its run (including pantsgiving).",
       default: false,
     }),
+    pearlo: Args.flag({
+      setting: "",
+      help: "farm unblemished pearls at the end of the run when they are worth their adventures, planting legendary acorndion sea cows in the pearl zones if you have one.",
+      default: false,
+    }),
     quick: Args.flag({
       setting: "",
       help: "garbo will sacrifice some optimal behaviors to run quicker. Estimated and actual profits may be less accurate in this mode. Sets quickcombat and quickgear.",
@@ -332,6 +337,11 @@ You can use multiple options in conjunction, e.g. "garbo nobarf ascend"',
       "",
     ),
     saveTurns: Args.custom<number>({ hidden: true, default: 0 }, () => 0, ""),
+    farmingStarted: Args.custom<boolean>(
+      { hidden: true, default: false },
+      () => false,
+      "",
+    ),
     askedAboutWish: Args.custom<boolean>(
       { hidden: true, default: false },
       () => false,

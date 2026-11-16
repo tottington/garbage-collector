@@ -1,14 +1,5 @@
+import { adv1, Location, myLocation } from "kolmafia";
 import {
-  adv1,
-  booleanModifier,
-  canEquip,
-  cliExecute,
-  Location,
-  myLocation,
-  use,
-} from "kolmafia";
-import {
-  $effect,
   $familiar,
   $item,
   $location,
@@ -23,10 +14,10 @@ import {
 import { DraggableFight } from "garbo-lib";
 import { OutfitSpec } from "grimoire-kolmafia";
 
-import { waterBreathingEquipment } from "../outfit/lib";
+import { canBreatheUnderwater } from "../outfit/lib";
 import { Macro } from "../combat";
 import { globalOptions } from "../config";
-import { freeFishyAvailable } from "../lib";
+import { freeFishyAvailable, getFreeFishy } from "../lib";
 import { willYachtzee } from "../resources/yachtzee";
 import { FarmingStrategy } from "../farmingStrategy";
 
@@ -35,14 +26,12 @@ import { FarmingStrategy } from "../farmingStrategy";
  * @interface TargetFightConfigOptions
  * @member {OutfitSpec} spec maximizer requirements to use for this fight (defaults to empty)
  * @member {draggableFight?} draggable if this fight can be pulled into another zone and what kind of draggable it is (defaults to undefined)
- * @member {boolean?} canInitializeWandererCounters if this fight can be used to initialize wanderers (defaults to false)
  * @member {boolean?} gregariousReplace if this is a "monster replacement" fight - pulls another monster from the CSV (defautls to false)
  * @member {boolean?} wrongEncounterName if mafia does not update the lastEncounter properly when doing this fight (defaults to value of gregariousReplace)
  */
 export interface TargetFightConfigOptions {
   spec?: OutfitSpec;
   draggable?: DraggableFight;
-  canInitializeWandererCounters?: boolean;
   wrongEncounterName?: boolean;
   gregariousReplace?: boolean;
   location?: Location;
@@ -61,27 +50,11 @@ export function checkUnderwater(): boolean {
     getStep("questS01OldGuy") >= QuestState.STARTED &&
     !(get("_envyfishEggUsed") || have($item`envyfish egg`)) &&
     (get("_garbo_weightChain", false) || !have($familiar`Pocket Professor`)) &&
-    (booleanModifier("Adventure Underwater") ||
-      waterBreathingEquipment.some((item) => have(item) && canEquip(item))) &&
+    canBreatheUnderwater() &&
     freeFishyAvailable() &&
     (!willYachtzee() || FarmingStrategy.isUnderwater())
   ) {
-    if (
-      !have($effect`Fishy`) &&
-      have($item`fishy pipe`) &&
-      !get("_fishyPipeUsed")
-    ) {
-      use($item`fishy pipe`);
-    }
-    if (
-      !have($effect`Fishy`) &&
-      get("skateParkStatus") === "ice" &&
-      !get("_skateBuff1")
-    ) {
-      cliExecute("skate lutz");
-    }
-
-    return have($effect`Fishy`);
+    return getFreeFishy();
   }
 
   return false;

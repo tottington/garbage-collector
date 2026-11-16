@@ -3,6 +3,7 @@ import {
   cliExecute,
   Effect,
   effectModifier,
+  equippedItem,
   Familiar,
   familiarWeight,
   fileToBuffer,
@@ -10,6 +11,7 @@ import {
   getLocketMonsters,
   getMonsters,
   gitInfo,
+  haveEffect,
   haveEquipped,
   holiday,
   inebrietyLimit,
@@ -17,12 +19,14 @@ import {
   Item,
   itemAmount,
   itemDropsArray,
+  itemType,
   Location,
   meatDrop,
   meatDropModifier,
   Monster,
   mpCost,
   myBjornedFamiliar,
+  myBuffedstat,
   myEnthronedFamiliar,
   myFamiliar,
   myFullness,
@@ -58,6 +62,8 @@ import {
   $location,
   $monster,
   $skill,
+  $slot,
+  $stat,
   $thralls,
   ActionSource,
   bestLibramToCast,
@@ -84,6 +90,7 @@ import {
   SongBoom,
   SourceTerminal,
   sum,
+  sumNumbers,
   tryFindBanish,
   tryFindFreeRun,
 } from "libram";
@@ -91,6 +98,36 @@ import { acquire } from "./acquire";
 import { globalOptions } from "./config";
 import { garboAverageValue, garboValue } from "./garboValue";
 import { Outfit, OutfitSpec } from "grimoire-kolmafia";
+
+export type CombatOutcome = "win" | "run";
+export type CombatOutcomes =
+  | CombatOutcome
+  | Partial<Record<CombatOutcome, number>>;
+
+export function combatOutcomeWeight(
+  outcomes: CombatOutcomes,
+  rewardedOutcomes: readonly CombatOutcome[],
+): number {
+  if (typeof outcomes === "string") {
+    return rewardedOutcomes.includes(outcomes) ? 1 : 0;
+  }
+
+  const weights = Object.values(outcomes);
+  const totalWeight = sumNumbers(weights);
+  if (
+    weights.some((weight) => !Number.isFinite(weight) || weight < 0) ||
+    totalWeight <= 0
+  ) {
+    throw new Error(
+      "Combat outcome weights must be nonnegative and have a positive total.",
+    );
+  }
+
+  // Accept relative weights as well as probabilities that already sum to one.
+  return (
+    sum(rewardedOutcomes, (outcome) => outcomes[outcome] ?? 0) / totalWeight
+  );
+}
 
 export const eventLog: {
   initialCopyTargetsFought: number;
@@ -287,7 +324,7 @@ export function pillkeeperOpportunityCost(): number {
 export function burnLibrams(mpTarget = 0): void {
   let libramToCast = bestLibramToCast();
   while (libramToCast && mpCost(libramToCast) <= myMp() - mpTarget) {
-    useSkill(libramToCast);
+    useSkill(1, libramToCast);
     libramToCast = bestLibramToCast();
   }
   if (mpTarget > 0) {
@@ -629,7 +666,7 @@ export function freeRest(): boolean {
         (sk) => -mpCost(sk),
       ); // are there any other skills that cost mana which we should blacklist?
       // Facial expressions? But this usually won't be an issue since all *NORMAL* classes have access to a level1 1mp skill
-      useSkill(bestSkill);
+      useSkill(1, bestSkill);
     }
   }
 
@@ -941,11 +978,42 @@ export function willDrunkAdventure() {
   return have($item`Drunkula's wineglass`) && globalOptions.ascend;
 }
 
-export function freeFishyAvailable(): boolean {
+export const freeFishyAvailable = () => freeFishyTurns() > 0;
+
+/**
+ * @returns Fishy turns available without spending anything: the current effect, the fishy pipe and a lutz at the icy Skate Park
+ */
+export function freeFishyTurns(): number {
   return (
-    have($effect`Fishy`) ||
-    (have($item`fishy pipe`) && !get("_fishyPipeUsed")) ||
-    (get("skateParkStatus") === "ice" && !get("_skateBuff1"))
+    haveEffect($effect`Fishy`) +
+    (have($item`fishy pipe`) && !get("_fishyPipeUsed") ? 10 : 0) +
+    (get("skateParkStatus") === "ice" && !get("_skateBuff1") ? 30 : 0)
+  );
+}
+
+/**
+ * Get Fishy from a free source: the fishy pipe, then a lutz at the icy Skate Park.
+ * @returns Whether Fishy is active
+ */
+export function getFreeFishy(): boolean {
+  if (!have($effect`Fishy`) && have($item`fishy pipe`)) {
+    if (!get("_fishyPipeUsed")) use($item`fishy pipe`);
+  }
+  if (!have($effect`Fishy`) && get("skateParkStatus") === "ice") {
+    if (!get("_skateBuff1")) cliExecute("skate lutz");
+  }
+  return have($effect`Fishy`);
+}
+
+/**
+ * @returns Whether the monster's attack comes within 10 of the Moxie that dodges it, or of the Muscle that blocks it with Hero of the Half-Shell and a shield
+ */
+export function needsDelevel(monster: Monster): boolean {
+  return (
+    myBuffedstat($stat`Moxie`) < monster.baseAttack + 10 ||
+    (have($skill`Hero of the Half-Shell`) &&
+      itemType(equippedItem($slot`offhand`)) === "shield" &&
+      myBuffedstat($stat`Muscle`) < monster.baseAttack + 10)
   );
 }
 

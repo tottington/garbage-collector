@@ -70,7 +70,6 @@ import {
   property,
   Robortender,
   set,
-  Snapper,
   SourceTerminal,
   undelay,
 } from "libram";
@@ -331,10 +330,7 @@ export function dailyFights(): void {
           property: "_garbo_meatChain",
           macro: firstChainMacro,
           goalMaximize: (spec: OutfitSpec, location: Location) =>
-            meatTargetOutfit(spec, {
-              location,
-              target: globalOptions.target,
-            }).dress(),
+            meatTargetOutfit(spec, location).dress(),
         },
         {
           shouldDo: true,
@@ -430,7 +426,7 @@ export function dailyFights(): void {
         have($skill`Musk of the Moose`) &&
         !have($effect`Musk of the Moose`)
       ) {
-        useSkill($skill`Musk of the Moose`);
+        useSkill(1, $skill`Musk of the Moose`);
       }
 
       if (nextFight.gregariousReplace) {
@@ -444,13 +440,6 @@ export function dailyFights(): void {
       const underwater = location.environment === "underwater";
 
       const famSpec = familiarSpec(underwater, nextFight);
-
-      if (
-        famSpec.familiar === $familiar`Red-Nosed Snapper` &&
-        Snapper.getTrackedPhylum() !== globalOptions.target.phylum
-      ) {
-        Snapper.trackPhylum(globalOptions.target.phylum);
-      }
 
       setLocation(location);
       meatTargetOutfit({ ...nextFight.spec, ...famSpec }, location).dress();
@@ -720,7 +709,9 @@ const freeRunFightSources = [
       const monsters = asArray(best.monster);
       if (best.preReq) best.preReq();
       const hasXO = myFamiliar() === $familiar`XO Skeleton`;
-      if (myThrall() !== $thrall.none) useSkill($skill`Dismiss Pasta Thrall`);
+      if (myThrall() !== $thrall.none) {
+        useSkill(1, $skill`Dismiss Pasta Thrall`);
+      }
       withMacro(
         Macro.if_(
           monsters.map((m) => `!monsterid ${m.id}`).join(" && "),
@@ -1273,7 +1264,11 @@ function itemStealOlfact(best: ItemStealZone) {
 }
 
 const BAD_CLL_MONSTERS = $monsters`alert mariachi`;
-type FreeKill = { spec?: OutfitSpec; macro: Skill | Item; used: () => boolean };
+export type FreeKill = {
+  spec?: OutfitSpec;
+  macro: Skill | Item;
+  used: () => boolean;
+};
 const freeKills: FreeKill[] = [
   {
     spec: { equip: $items`The Jokester's gun` },
@@ -1300,8 +1295,10 @@ const freeKills: FreeKill[] = [
 ];
 const canUseSource = ({ spec, macro, used }: FreeKill) =>
   (spec?.equip?.every((i) => have(i)) ?? have(macro)) && !used();
-function findFreeKill() {
-  return freeKills.find(canUseSource) ?? null;
+export function findFreeKill(
+  filter: (freeKill: FreeKill) => boolean = () => true,
+) {
+  return freeKills.find((k) => filter(k) && canUseSource(k)) ?? null;
 }
 
 function killRobortCreaturesForFree() {

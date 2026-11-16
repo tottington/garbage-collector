@@ -27,8 +27,12 @@ import { estimatedGarboTurns } from "../../turns";
 import { barfOutfit } from "../../outfit/barf";
 import { FarmingContext } from "../context";
 import { acquire } from "../../acquire";
+import { pearlTurnsReserved } from "../../resources/pearls";
+import { tuneSnapper } from "../../familiar/lib";
 
 export const farmPrepare = (context: FarmingContext) => {
+  tuneSnapper("barf");
+
   if (redTaffyWorth() && FarmingStrategy.isUnderwater()) {
     acquire(
       estimatedGarboTurns(),
@@ -37,6 +41,7 @@ export const farmPrepare = (context: FarmingContext) => {
       false, // It's fine to continue running if there aren't appropriately priced taffies
     );
   }
+
   if (
     FarmingStrategy.location === $location`The Coral Corral` &&
     get("seahorseName") === "" &&
@@ -78,13 +83,14 @@ export function FarmTurnQuest(): Quest<
           FarmingStrategy.shouldOlfact,
         completed: () =>
           have($effect`Everything looks Beige`) || myAdventures() === 0,
+        prepare: () => tuneSnapper("barf"),
         outfit: (context) => barfOutfit(FarmingStrategy.outfit(context)),
         do: () => CrepeParachute.fight(FarmingStrategy.primaryMonster()),
         combat: FarmingStrategy.strategy(),
         post: () => {
           FarmingStrategy.post?.();
           if (!have($effect`Everything looks Beige`)) updateParachuteFailure();
-          trackMarginalMpa();
+          trackMarginalMpa(estimatedGarboTurns() - pearlTurnsReserved());
         },
         spendsTurn: true,
       },
@@ -97,7 +103,7 @@ export function FarmTurnQuest(): Quest<
         combat: FarmingStrategy.strategy(),
         post: () => {
           FarmingStrategy.post?.();
-          trackMarginalMpa();
+          trackMarginalMpa(estimatedGarboTurns() - pearlTurnsReserved());
 
           if (toMonster(get("lastEncounter")) === $monster`tumbleweed`) {
             throw new Error(
