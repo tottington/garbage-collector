@@ -61,10 +61,10 @@ import {
   acornCowsFought,
   acorndion,
   AcornKind,
-  acornsGeneratedToday,
   acornSite,
   acornSkill,
   acornsLeftToday,
+  acornsUsedToday,
   haveAcorndion,
   observeAcornFight,
   recordPlanting,
@@ -364,7 +364,7 @@ function zoneTasks(target: PearlTarget): PearlTask[] {
           acornMp(planting) + (plantingKill(location, planting)?.mp ?? 0),
         ),
       );
-      acornsBefore = acornsGeneratedToday();
+      acornsBefore = acornsUsedToday();
       progressBefore = get(target.progressPref);
     },
     do: () => {

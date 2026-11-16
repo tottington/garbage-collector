@@ -1,4 +1,5 @@
 import {
+  getProperty,
   Location,
   Monster,
   myAscensions,
@@ -54,12 +55,13 @@ export const acornNames = (kinds: AcornKind[]) =>
   kinds.map((kind) => acornSkill(kind).name).join(", ") || "none";
 
 /**
- * @returns The acorns the acorndion generated today, read from its description, or null if the page didn't say
+ * Visit the acorndion's description, which mafia reads into `_legendaryAcornsUsed`.
+ * @returns The acorns used today, or null when this version of mafia doesn't track them
  */
-export function acornsGeneratedToday(): number | null {
-  const page = visitUrl(`desc_item.php?whichitem=${acorndion().descid}`);
-  const match = page.match(/(\d+) of \d+ acorns generated today/);
-  return match ? Number(match[1]) : null;
+export function acornsUsedToday(): number | null {
+  visitUrl(`desc_item.php?whichitem=${acorndion().descid}`);
+  const used = getProperty("_legendaryAcornsUsed");
+  return used === "" ? null : Number(used);
 }
 
 /**
@@ -67,8 +69,15 @@ export function acornsGeneratedToday(): number | null {
  */
 export function acornsLeftToday(): number {
   if (!haveAcorndion()) return 0;
-  const generated = acornsGeneratedToday();
-  return generated === null ? 0 : Math.max(0, 12 - generated);
+  const used = acornsUsedToday();
+  if (used === null) {
+    print(
+      "This version of mafia doesn't track acorns used, so garbo plants no acorns. Update mafia to plant them.",
+      "red",
+    );
+    return 0;
+  }
+  return Math.max(0, 12 - used);
 }
 
 function readSites(): Map<Location, AcornSite> {
@@ -124,7 +133,7 @@ export function recordPlanting(
   kinds: AcornKind[],
   before: number | null,
 ): void {
-  const after = acornsGeneratedToday();
+  const after = acornsUsedToday();
   const actions = get("_lastCombatActions");
   const monster = toMonster(get("lastEncounter"));
   const cast = kinds.filter((kind) =>
