@@ -2,9 +2,7 @@ import { Quest } from "grimoire-kolmafia";
 import {
   abort,
   availableChoiceOptions,
-  handlingChoice,
   inebrietyLimit,
-  lastChoice,
   mallPrice,
   maximize,
   myAdventures,
@@ -40,6 +38,9 @@ import { globalOptions } from "../../config";
 import { meatMood } from "../../mood";
 import { potionSetup } from "../../potions";
 import { highMeatMonsterCount } from "../../turns";
+
+// Mafia reads the ship's gold, glue, grog and grub from the character pane, which a choice doesn't load
+const refreshShipSupplies = () => visitUrl("charpane.php");
 
 export const CockroachSetup: Quest<GarboTask> = {
   name: "Setup Cockroach Target",
@@ -116,6 +117,7 @@ export const CockroachSetup: Quest<GarboTask> = {
             ? 6
             : 1,
       }),
+      post: refreshShipSupplies,
       limit: { tries: 1 },
       spendsTurn: false,
       combat: new GarboStrategy(() =>
@@ -147,14 +149,9 @@ export const CockroachSetup: Quest<GarboTask> = {
         1363: 2,
         1359: 1, // Emergency grog adventure, choice one seems more consistent?
         1358: 1, // Emergency grub adventure, choice one seems more consistent?
-        1367: 1, // Wrecked ship, this uses glue, need a pref for glue to make this not break if we don't have glue
+        1367: get("_pirateRealmGlue") > 0 ? 1 : 2, // Wrecked ship: repair it with glue, or wait for assistance
       }),
-      post: () => {
-        // Escape wrecked ship, if no glue is available
-        if (handlingChoice() && lastChoice() === 1367) {
-          runChoice(2);
-        }
-      },
+      post: refreshShipSupplies,
       limit: { tries: 8 },
       spendsTurn: true,
       combat: new GarboStrategy(() =>
@@ -269,7 +266,10 @@ export const CockroachFinish: Quest<GarboTask> = {
               () => potionSetup(false),
             ],
           },
-          $location`Crab Island`,
+          {
+            location: $location`Crab Island`,
+            target: $monster`giant giant crab`,
+          },
         ),
       choices: { 1368: 1 }, // fight crab
       combat: new GarboStrategy(() =>

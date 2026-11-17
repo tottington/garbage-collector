@@ -84,6 +84,7 @@ import {
   SongBoom,
   SourceTerminal,
   sum,
+  sumNumbers,
   tryFindBanish,
   tryFindFreeRun,
 } from "libram";
@@ -91,6 +92,36 @@ import { acquire } from "./acquire";
 import { globalOptions } from "./config";
 import { garboAverageValue, garboValue } from "./garboValue";
 import { Outfit, OutfitSpec } from "grimoire-kolmafia";
+
+export type CombatOutcome = "win" | "run";
+export type CombatOutcomes =
+  | CombatOutcome
+  | Partial<Record<CombatOutcome, number>>;
+
+export function combatOutcomeWeight(
+  outcomes: CombatOutcomes,
+  rewardedOutcomes: readonly CombatOutcome[],
+): number {
+  if (typeof outcomes === "string") {
+    return rewardedOutcomes.includes(outcomes) ? 1 : 0;
+  }
+
+  const weights = Object.values(outcomes);
+  const totalWeight = sumNumbers(weights);
+  if (
+    weights.some((weight) => !Number.isFinite(weight) || weight < 0) ||
+    totalWeight <= 0
+  ) {
+    throw new Error(
+      "Combat outcome weights must be nonnegative and have a positive total.",
+    );
+  }
+
+  // Accept relative weights as well as probabilities that already sum to one.
+  return (
+    sum(rewardedOutcomes, (outcome) => outcomes[outcome] ?? 0) / totalWeight
+  );
+}
 
 export const eventLog: {
   initialCopyTargetsFought: number;
@@ -287,7 +318,7 @@ export function pillkeeperOpportunityCost(): number {
 export function burnLibrams(mpTarget = 0): void {
   let libramToCast = bestLibramToCast();
   while (libramToCast && mpCost(libramToCast) <= myMp() - mpTarget) {
-    useSkill(libramToCast);
+    useSkill(1, libramToCast);
     libramToCast = bestLibramToCast();
   }
   if (mpTarget > 0) {
@@ -629,7 +660,7 @@ export function freeRest(): boolean {
         (sk) => -mpCost(sk),
       ); // are there any other skills that cost mana which we should blacklist?
       // Facial expressions? But this usually won't be an issue since all *NORMAL* classes have access to a level1 1mp skill
-      useSkill(bestSkill);
+      useSkill(1, bestSkill);
     }
   }
 
